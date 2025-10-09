@@ -74,7 +74,7 @@ public:
         auto key = [&](int x, int y) { return y * mapa[0].size() + x; };
 
         auto heuristica = [&](int x1, int y1, int x2, int y2) {
-            return static_cast<float>(abs(x1 - x2) + abs(y1 - y2)); // Dist‚ncia de Manhattan
+            return static_cast<float>(abs(x1 - x2) + abs(y1 - y2)); // Dist√¢ncia de Manhattan
             };
 
         abertos.emplace(inicio.x, inicio.y, 0, heuristica(inicio.x, inicio.y, destino.x, destino.y));
@@ -83,12 +83,12 @@ public:
             Node atual = abertos.top();
             abertos.pop();
 
-            // Se destino alcanÁado
+            // Se destino alcan√ßado
             if (atual.x == destino.x && atual.y == destino.y) {
                 return reconstruirCaminho(&atual);
             }
 
-            // Marca o nÛ atual como fechado
+            // Marca o n√≥ atual como fechado
             fechados.insert(key(atual.x, atual.y));
 
             // Vizinhos (cima, baixo, esquerda, direita)
@@ -202,9 +202,9 @@ void exibirRanking() {
     sf::Text text("", font, 20);
     int posicao = 1;
 
-    // Vari·veis para controle de rolagem
-    const int linhasVisiveis = 20; // N˙mero de linhas que podem ser exibidas na tela
-    int primeiraLinhaVisivel = 0; // Õndice da primeira linha visÌvel
+    // Vari√°veis para controle de rolagem
+    const int linhasVisiveis = 20; // N√∫mero de linhas que podem ser exibidas na tela
+    int primeiraLinhaVisivel = 0; // √çndice da primeira linha vis√≠vel
 
     window.clear();
     window.draw(titulo);
@@ -231,14 +231,14 @@ void exibirRanking() {
             }
         }
 
-        // Desenhar as linhas do ranking visÌveis
-        window.clear(); // Limpa a janela a cada iteraÁ„o
+        // Desenhar as linhas do ranking vis√≠veis
+        window.clear(); // Limpa a janela a cada itera√ß√£o
         window.draw(titulo);
 
         for (int i = 0; i < linhasVisiveis; i++) {
             int index = primeiraLinhaVisivel + i;
-            if (index < ranking.size()) { // Verifica se o Ìndice est· dentro dos limites
-                // Formatar tempo como data legÌvel
+            if (index < ranking.size()) { // Verifica se o √≠ndice est√° dentro dos limites
+                // Formatar tempo como data leg√≠vel
                 char buffer[26];
                 if (ctime_s(buffer, sizeof(buffer), &ranking[index].tempo) != 0) {
                     std::cerr << "Erro ao formatar tempo para o jogador: " << ranking[index].nome << std::endl;
@@ -321,20 +321,20 @@ public:
         const std::vector<sf::Sprite>& pilulas,
         const std::vector<sf::Sprite>& fantasmas, // Adicionando vetor de fantasmas
         float deltaTempo) {
-        // Obter posiÁ„o atual do Pac-Man no grid
+        // Obter posi√ß√£o atual do Pac-Man no grid
         sf::Vector2i posicaoPacman(
             static_cast<int>(sprite.getPosition().x / tamanhoBloco),
             static_cast<int>(sprite.getPosition().y / tamanhoBloco)
         );
 
-        // Verificar se Pac-Man est· no centro de um bloco
+        // Verificar se Pac-Man est√° no centro de um bloco
         sf::Vector2f posicaoAtual = sprite.getPosition();
         bool noCentroDoBloco =
             static_cast<int>(posicaoAtual.x) % tamanhoBloco == 0 &&
             static_cast<int>(posicaoAtual.y) % tamanhoBloco == 0;
 
         if (noCentroDoBloco) {
-            // Encontrar a pÌlula mais prÛxima
+            // Encontrar a p√≠lula mais pr√≥xima
             sf::Vector2i destino = posicaoPacman;
             float menorDistancia = std::numeric_limits<float>::max();
 
@@ -355,7 +355,7 @@ public:
                 }
             }
 
-            // Avaliar todas as direÁıes v·lidas e encontrar a melhor
+            // Avaliar todas as dire√ß√µes v√°lidas e encontrar a melhor
             sf::Vector2i melhorDirecao = { 0, 0 };
             menorDistancia = std::numeric_limits<float>::max();
             std::vector<sf::Vector2i> direcoes = {
@@ -368,18 +368,18 @@ public:
             for (const auto& direcao : direcoes) {
                 sf::Vector2i novaPosicao = posicaoPacman + direcao;
 
-                // Verificar se a nova posiÁ„o est· dentro do mapa
+                // Verificar se a nova posi√ß√£o est√° dentro do mapa
                 if (novaPosicao.y < 0 || novaPosicao.y >= static_cast<int>(mapa.size()) ||
                     novaPosicao.x < 0 || novaPosicao.x >= static_cast<int>(mapa[0].size())) {
                     continue;
                 }
 
-                // Verificar se a nova posiÁ„o n„o È uma parede
+                // Verificar se a nova posi√ß√£o n√£o √© uma parede
                 if (mapa[novaPosicao.y][novaPosicao.x] == 1) {
                     continue;
                 }
 
-                // Verificar se a nova posiÁ„o n„o È ocupada por um fantasma
+                // Verificar se a nova posi√ß√£o n√£o √© ocupada por um fantasma
                 bool colidiuComFantasma = false;
                 for (const auto& fantasma : fantasmas) {
                     sf::FloatRect rectFantasma = fantasma.getGlobalBounds();
@@ -390,53 +390,53 @@ public:
                 }
 
                 if (colidiuComFantasma) {
-                    continue; // Evitar a direÁ„o que leva ao fantasma
+                    continue; // Evitar a dire√ß√£o que leva ao fantasma
                 }
 
-                // Calcular a dist‚ncia atÈ o destino (pÌlula)
+                // Calcular a dist√¢ncia at√© o destino (p√≠lula)
                 float distancia = std::hypot(
                     destino.x - novaPosicao.x,
                     destino.y - novaPosicao.y
                 );
 
-                // Escolher a direÁ„o que minimiza a dist‚ncia e È v·lida
+                // Escolher a dire√ß√£o que minimiza a dist√¢ncia e √© v√°lida
                 if (distancia < menorDistancia) {
                     menorDistancia = distancia;
                     melhorDirecao = direcao;
                 }
             }
 
-            // Atualizar a direÁ„o apenas se uma direÁ„o v·lida for encontrada
+            // Atualizar a dire√ß√£o apenas se uma dire√ß√£o v√°lida for encontrada
             if (melhorDirecao != sf::Vector2i(0, 0)) {
                 direcaoAtual = sf::Vector2f(melhorDirecao.x, melhorDirecao.y);
             }
             else {
-                std::cout << "Nenhuma direÁ„o v·lida encontrada.\n";
+                std::cout << "Nenhuma dire√ß√£o v√°lida encontrada.\n";
             }
         }
 
-        // Mover Pac-Man na direÁ„o atual
+        // Mover Pac-Man na dire√ß√£o atual
         sf::Vector2f movimento = direcaoAtual * (velocidade * deltaTempo);
         sf::FloatRect novaPosicaoPacman = sprite.getGlobalBounds();
         novaPosicaoPacman.left += movimento.x;
         novaPosicaoPacman.top += movimento.y;
 
-        // Verificar colis„o antes de mover
+        // Verificar colis√£o antes de mover
         sf::Vector2i posicaoGridNova(
             static_cast<int>(novaPosicaoPacman.left / tamanhoBloco),
             static_cast<int>(novaPosicaoPacman.top / tamanhoBloco)
         );
 
-        // Verificar se a posiÁ„o nova est· v·lida e n„o contÈm paredes
+        // Verificar se a posi√ß√£o nova est√° v√°lida e n√£o cont√©m paredes
         if (posicaoGridNova.y >= 0 && posicaoGridNova.y < static_cast<int>(mapa.size()) &&
             posicaoGridNova.x >= 0 && posicaoGridNova.x < static_cast<int>(mapa[0].size()) &&
             mapa[posicaoGridNova.y][posicaoGridNova.x] != 1) {
 
-            // Verificar se a nova posiÁ„o colide com algum fantasma
+            // Verificar se a nova posi√ß√£o colide com algum fantasma
             for (const auto& fantasma : fantasmas) {
                 if (fantasma.getGlobalBounds().contains(novaPosicaoPacman.left, novaPosicaoPacman.top)) {
-                    std::cout << "Colis„o com fantasma detectada. Movimento bloqueado.\n";
-                    direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colis„o com fantasma
+                    std::cout << "Colis√£o com fantasma detectada. Movimento bloqueado.\n";
+                    direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colis√£o com fantasma
                     return;
                 }
             }
@@ -444,18 +444,18 @@ public:
             sprite.move(movimento);
         }
         else {
-            std::cout << "Colis„o com parede detectada. Movimento bloqueado.\n";
-            direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colis„o
+            std::cout << "Colis√£o com parede detectada. Movimento bloqueado.\n";
+            direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colis√£o
         }
     }
 
     bool verificarColisaoParede(const sf::FloatRect& novaPosicaoPacman) {
         for (const auto& parede : paredes) {
             if (novaPosicaoPacman.intersects(parede.getGlobalBounds())) {
-                return true; // Colis„o detectada
+                return true; // Colis√£o detectada
             }
         }
-        return false; // Sem colis„o
+        return false; // Sem colis√£o
     }
 
     void atualizarFortalecimento(float deltaTempo) {
@@ -463,7 +463,7 @@ public:
             temporizadorFortalecimento -= deltaTempo;
             if (temporizadorFortalecimento <= 0) {
                 fortalecido = false;
-                sprite.setColor(sf::Color::White); // Volta ‡ cor normal
+                sprite.setColor(sf::Color::White); // Volta √† cor normal
             }
         }
     }
@@ -491,7 +491,7 @@ public:
     const float modeDuration = 7.0f;
     bool saiuDaBase = false;
     float tempoParaTrocarEstado = 5.0f;
-    Direcao direcao = parado; // Adicionado para armazenar a direÁ„o atual
+    Direcao direcao = parado; // Adicionado para armazenar a dire√ß√£o atual
     float tempoAteSaida = 0.0f;
 
     Fantasma(sf::Texture& texture, Posicao startPos, Posicao scatterPos, const std::string& ghostName, float range)
@@ -549,7 +549,7 @@ public:
             sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
         }
         else {
-            escolherNovaDirecao(mapa); // Muda de direÁ„o ao colidir com uma parede
+            escolherNovaDirecao(mapa); // Muda de dire√ß√£o ao colidir com uma parede
         }
     }
 
@@ -570,10 +570,10 @@ public:
         int y = static_cast<int>(std::round(posicao.y));
 
         if (y < 0 || y >= mapa.size() || x < 0 || x >= mapa[0].size()) {
-            return true; // Fora dos limites È considerado colis„o
+            return true; // Fora dos limites √© considerado colis√£o
         }
 
-        return mapa[y][x] <= 0; // Valores menores ou iguais a 0 s„o paredes
+        return mapa[y][x] <= 0; // Valores menores ou iguais a 0 s√£o paredes
     }
 
     void escolherNovaDirecao(const std::vector<std::vector<int>>& mapa) {
@@ -602,7 +602,7 @@ public:
     Blinky(sf::Texture& texture, Posicao startPos, Posicao scatterPos, float range)
         : Fantasma(texture, startPos, scatterPos, "Blinky", 1.0f) {}
     Posicao calcularAlvo(const Posicao& pacmanPos, Direcao) override {
-        return pacmanPos; // Alvo direto: posiÁ„o do Pac-Man
+        return pacmanPos; // Alvo direto: posi√ß√£o do Pac-Man
     }
 };
 
@@ -661,7 +661,7 @@ public:
     Pacman pacman;
     std::vector<std::unique_ptr<Fantasma>> fantasmas;
     std::vector<sf::Sprite> spritesFantasmas;
-    sf::Clock relogioJogo; // No inÌcio do jogo
+    sf::Clock relogioJogo; // No in√≠cio do jogo
     sf::RectangleShape parede;
     sf::Texture texturaParede;
     sf::Texture texturaPilula;
@@ -699,7 +699,7 @@ public:
     NivelDificuldade dificuldadeAtual;
     bool saiuDaBase = false;
     float tempoAteSaida = 5.0f;
-    ModoJogo modoAtual = Manual; // Inicialmente, o modo È Manual
+    ModoJogo modoAtual = Manual; // Inicialmente, o modo √© Manual
 
     std::vector<std::vector<std::vector<int>>> mapas = {
     { // Fase 1
@@ -797,7 +797,7 @@ public:
     }
 
     bool todasAsFrutasColetadas() {
-        return pilulas.empty(); // Verifica se n„o h· mais frutas
+        return pilulas.empty(); // Verifica se n√£o h√° mais frutas
     }
 
     void inicializarFase(int indiceFase) {
@@ -810,7 +810,7 @@ public:
             criarItem2();
         }
         else {
-            std::cerr << "Fase inv·lida: " << indiceFase << std::endl;
+            std::cerr << "Fase inv√°lida: " << indiceFase << std::endl;
         }
     }
 
@@ -848,17 +848,17 @@ public:
     }
 
     void definirPosicoesIniciais() {
-        // Limpa as posiÁıes anteriores
+        // Limpa as posi√ß√µes anteriores
         fantasmas.clear();
 
-        // Percorre o mapa para encontrar as posiÁıes do Pac-Man e dos fantasmas
+        // Percorre o mapa para encontrar as posi√ß√µes do Pac-Man e dos fantasmas
         for (int y = 0; y < mapa.size(); ++y) {
             for (int x = 0; x < mapa[y].size(); ++x) {
                 if (mapa[y][x] == 5) { // Pac-Man
                     pacman.sprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
                 }
                 else if (mapa[y][x] == 4) { // Fantasmas
-                    criarFantasmas(x, y); // FunÁ„o que cria fantasmas na posiÁ„o
+                    criarFantasmas(x, y); // Fun√ß√£o que cria fantasmas na posi√ß√£o
                 }
             }
         }
@@ -871,7 +871,7 @@ public:
                     sf::Sprite itemSprite;
                     itemSprite.setTexture(texturaItem);
                     itemSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
-                    itemSprite.setScale(1.0f, 1.0f); // Ajuste a escala conforme necess·rio
+                    itemSprite.setScale(1.0f, 1.0f); // Ajuste a escala conforme necess√°rio
                     item.push_back(itemSprite);
                 }
                 else if (mapa[y][x] == 7) {
@@ -915,13 +915,13 @@ public:
         if (vetor == sf::Vector2f(0, 1)) return baixo;
         if (vetor == sf::Vector2f(-1, 0)) return esquerda;
         if (vetor == sf::Vector2f(1, 0)) return direita;
-        return parado; // Caso nenhuma direÁ„o seja identificada
+        return parado; // Caso nenhuma dire√ß√£o seja identificada
     }
 
     void jogarComIA() {
         Jogo jogo;
-        jogo.pacman.vidas = 3;  // ConfiguraÁ„o inicial do Pac-Man
-        jogo.dificuldade(Medio);  // Ajuste a dificuldade se necess·rio
+        jogo.pacman.vidas = 3;  // Configura√ß√£o inicial do Pac-Man
+        jogo.dificuldade(Medio);  // Ajuste a dificuldade se necess√°rio
 
         sf::Clock relogio;
 
@@ -934,7 +934,7 @@ public:
         }
 
         if (jogo.estadoJogo == Vitoria) {
-            jogo.exibirMensagem("ParabÈns! VocÍ venceu!");
+            jogo.exibirMensagem("Parab√©ns! Voc√™ venceu!");
         }
         else if (jogo.estadoJogo == GameOver) {
             jogo.exibirMensagem("Game Over! Tente novamente.");
@@ -950,7 +950,7 @@ public:
         processarEventos();
 
         if (todasAsFrutasColetadas()) {
-            exibirMensagemTransicao("Fase " + std::to_string(faseAtual + 1) + " ConcluÌda!");
+            exibirMensagemTransicao("Fase " + std::to_string(faseAtual + 1) + " Conclu√≠da!");
             faseAtual++;
             if (faseAtual < mapas.size()) {
                 inicializarFase(faseAtual);
@@ -960,12 +960,12 @@ public:
             }
         }
 
-        // AtualizaÁıes gerais
+        // Atualiza√ß√µes gerais
         pacman.atualizarAnimacao(deltaTempo);
         pacman.atualizarFortalecimento(deltaTempo);
 
         if (modoAtual == IA) {
-            pacman.moverAutomaticamente(mapa, pilulas, spritesFantasmas, deltaTempo); // Chama o movimento autom·tico
+            pacman.moverAutomaticamente(mapa, pilulas, spritesFantasmas, deltaTempo); // Chama o movimento autom√°tico
         }
         else if (modoAtual == Manual) {
             // Controle manual
@@ -975,10 +975,10 @@ public:
             novaPosicaoTentativa.top += movimentoTentativo.y;
 
             if (!verificarColisaoParede(novaPosicaoTentativa)) {
-                pacman.direcaoAtual = proximaDirecao; // Apenas altera a direÁ„o se n„o houver colis„o
+                pacman.direcaoAtual = proximaDirecao; // Apenas altera a dire√ß√£o se n√£o houver colis√£o
             }
 
-            // Tentar mover na direÁ„o atual
+            // Tentar mover na dire√ß√£o atual
             sf::Vector2f movimentoPacman = pacman.direcaoAtual * pacman.velocidade * deltaTempo;
             sf::FloatRect novaPosicaoPacman = pacman.sprite.getGlobalBounds();
             novaPosicaoPacman.left += movimentoPacman.x;
@@ -998,7 +998,7 @@ public:
 
         for (auto& fantasma : fantasmas) {
             if (!fantasma->saiuDaBase) {
-                // Reduz o tempo para saÌda
+                // Reduz o tempo para sa√≠da
                 fantasma->tempoAteSaida -= deltaTempo;
 
                 if (fantasma->tempoAteSaida <= 0.0f) {
@@ -1006,28 +1006,28 @@ public:
                     std::cout << "Fantasma " << fantasma->name << " saiu da base." << std::endl;
                 }
                 else {
-                    // MantÈm o fantasma na base
+                    // Mant√©m o fantasma na base
                     fantasma->sprite.setPosition(fantasma->posicao.x * tamanhoBloco, fantasma->posicao.y * tamanhoBloco);
                 }
             }
 
-            // Atualiza o movimento do fantasma se ele j· saiu
+            // Atualiza o movimento do fantasma se ele j√° saiu
             if (fantasma->saiuDaBase) {
                 Direcao direcaoPacman = converterParaDirecao(pacman.direcaoAtual);
                 Posicao pacmanPos = { pacman.sprite.getPosition().x / tamanhoBloco, pacman.sprite.getPosition().y / tamanhoBloco };
-                fantasma->update(pacmanPos, direcaoPacman, 2.0f, deltaTempo, mapa); // Ajuste a velocidade conforme necess·rio
+                fantasma->update(pacmanPos, direcaoPacman, 2.0f, deltaTempo, mapa); // Ajuste a velocidade conforme necess√°rio
             }
         }
     
 
-        // Verificar colisıes entre Pac-Man e pilulas
+        // Verificar colis√µes entre Pac-Man e pilulas
         for (auto it = pilulas.begin(); it != pilulas.end(); ) {
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pontos += 10; // Adiciona pontos ao jogador
                 it = pilulas.erase(it); // Remove a fruta do vetor
             }
             else {
-                ++it; // AvanÁa o iterador se a fruta n„o foi coletada
+                ++it; // Avan√ßa o iterador se a fruta n√£o foi coletada
             }
         }
 
@@ -1035,7 +1035,7 @@ public:
         for (auto it = item.begin(); it != item.end();) {
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pontos += pontos * 2; // Duplica a quantidade de pontos
-                it = item.erase(it); // Remove o item da lista e avanÁa o iterador 
+                it = item.erase(it); // Remove o item da lista e avan√ßa o iterador 
             }
             else {
                 ++it;
@@ -1046,12 +1046,12 @@ public:
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pacman.vidas++; // Incrementa uma vida
                 if (pacman.vidas > maxVidas) {
-                    pacman.vidas = maxVidas; // Garante que o n˙mero de vidas n„o exceda o limite
+                    pacman.vidas = maxVidas; // Garante que o n√∫mero de vidas n√£o exceda o limite
                 }
                 it = apple.erase(it); // Remove o item da lista
             }
             else {
-                ++it; // AvanÁa o iterador
+                ++it; // Avan√ßa o iterador
             }
         }
 
@@ -1059,7 +1059,7 @@ public:
         for (auto it = orange.begin(); it != orange.end();) {
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pacman.velocidade += pacman.velocidade * 1.5f; // Duplica a quantidade de pontos
-                it = orange.erase(it); // Remove o item da lista e avanÁa o iterador 
+                it = orange.erase(it); // Remove o item da lista e avan√ßa o iterador 
             }
             else {
                 ++it;
@@ -1071,14 +1071,14 @@ public:
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pontos = pontos / 2; // Duplica a quantidade de pontos
                 pacman.velocidade = pacman.velocidade * 2;
-                it = beer.erase(it); // Remove o item da lista e avanÁa o iterador 
+                it = beer.erase(it); // Remove o item da lista e avan√ßa o iterador 
             }
             else {
                 ++it;
             }
         }
 
-        // Verificar colisıes entre Pac-Man e pilulas fortalecedoras 
+        // Verificar colis√µes entre Pac-Man e pilulas fortalecedoras 
         for (auto it = pilulasFortalecedoras.begin(); it != pilulasFortalecedoras.end();) {
             if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
                 pacman.ativarFortalecimento();
@@ -1090,12 +1090,12 @@ public:
             }
         }
 
-        // Verificar colisıes entre Pac-Man e fantasmas 
+        // Verificar colis√µes entre Pac-Man e fantasmas 
         for (auto& fantasma : fantasmas) {
             if (pacman.sprite.getGlobalBounds().intersects(fantasma->sprite.getGlobalBounds())) {
                 if (pacman.fortalecido) {
                     // Pac-Man come o fantasma 
-                    fantasma->posicao = fantasma->scatterTarget; // Move para a posiÁ„o de dispers„o 
+                    fantasma->posicao = fantasma->scatterTarget; // Move para a posi√ß√£o de dispers√£o 
                     fantasma->sprite.setPosition(fantasma->scatterTarget.x * tamanhoBloco, fantasma->scatterTarget.y * tamanhoBloco);
                     pontos += 200; // Adiciona pontos por comer o fantasma 
                 }
@@ -1106,7 +1106,7 @@ public:
                         estadoJogo = GameOver;
                     }
                     else {
-                        definirPosicoesIniciais(); // Reinicializa as posiÁıes do jogo 
+                        definirPosicoesIniciais(); // Reinicializa as posi√ß√µes do jogo 
                     }
                 }
             }
@@ -1122,19 +1122,19 @@ public:
             if (evento.type == sf::Event::KeyPressed) {
                 switch (evento.key.code) {
                 case sf::Keyboard::Up:
-                    proximaDirecao = sf::Vector2f(0.f, -1.f); // DireÁ„o para cima
+                    proximaDirecao = sf::Vector2f(0.f, -1.f); // Dire√ß√£o para cima
                     movimentos++; // Contabiliza o movimento
                     break;
                 case sf::Keyboard::Down:
-                    proximaDirecao = sf::Vector2f(0.f, 1.f); // DireÁ„o para baixo
+                    proximaDirecao = sf::Vector2f(0.f, 1.f); // Dire√ß√£o para baixo
                     movimentos++; // Contabiliza o movimento
                     break;
                 case sf::Keyboard::Left:
-                    proximaDirecao = sf::Vector2f(-1.f, 0.f); // DireÁ„o para a esquerda
+                    proximaDirecao = sf::Vector2f(-1.f, 0.f); // Dire√ß√£o para a esquerda
                     movimentos++; // Contabiliza o movimento
                     break;
                 case sf::Keyboard::Right:
-                    proximaDirecao = sf::Vector2f(1.f, 0.f); // DireÁ„o para a direita
+                    proximaDirecao = sf::Vector2f(1.f, 0.f); // Dire√ß√£o para a direita
                     movimentos++; // Contabiliza o movimento
                     break;
                 default:
@@ -1163,23 +1163,23 @@ public:
         texturaInky.loadFromFile("Resource/inky/d1.png");
         texturaClyde.loadFromFile("Resource/clyde/d1.png");
 
-        // Criar fantasmas com tempos de saÌda diferentes
+        // Criar fantasmas com tempos de sa√≠da diferentes
         fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, Posicao{ (float)x, (float)y }, Posicao{ 9, 11 }, 2.0f));
-        fantasmas.back()->tempoAteSaida = 2.0f; // Sai apÛs 2 segundos
+        fantasmas.back()->tempoAteSaida = 2.0f; // Sai ap√≥s 2 segundos
 
         fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, Posicao{ (float)x, (float)y }, Posicao{ 10, 12 }, 5.0f));
-        fantasmas.back()->tempoAteSaida = 4.0f; // Sai apÛs 4 segundos
+        fantasmas.back()->tempoAteSaida = 4.0f; // Sai ap√≥s 4 segundos
 
         fantasmas.push_back(std::make_unique<Inky>(texturaInky, Posicao{ (float)x, (float)y }, Posicao{ 8, 12 }, 10.0f));
-        fantasmas.back()->tempoAteSaida = 6.0f; // Sai apÛs 6 segundos
+        fantasmas.back()->tempoAteSaida = 6.0f; // Sai ap√≥s 6 segundos
 
         fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, Posicao{ (float)x, (float)y }, Posicao{ 9, 12 }, 15.0f));
-        fantasmas.back()->tempoAteSaida = 8.0f; // Sai apÛs 8 segundos
+        fantasmas.back()->tempoAteSaida = 8.0f; // Sai ap√≥s 8 segundos
     }
 
     void executar() {
         sf::Clock relogio;
-        std::string nomeJogador; // Vari·vel para armazenar o nome do jogador
+        std::string nomeJogador; // Vari√°vel para armazenar o nome do jogador
 
         while (janela.isOpen() && estadoJogo == Jogando) {
             sf::Time dt = relogio.restart();
@@ -1195,23 +1195,23 @@ public:
             std::cout << "Digite o nome do jogador: ";
             std::cin >> nomeJogador;
 
-            // Verifica se o jogador j· est· no ranking
+            // Verifica se o jogador j√° est√° no ranking
             if (!jogadorJaNoRanking(nomeJogador)) {
-                // Salvar a pontuaÁ„o no ranking
+                // Salvar a pontua√ß√£o no ranking
                 jogador novoJogador;
                 novoJogador.nome = nomeJogador;
                 novoJogador.pontos = pontos;
                 novoJogador.tempo = time(nullptr); // Tempo atual
                 ranking.push_back(novoJogador);
-                salvarRanking(); // Chama a funÁ„o para salvar o ranking
+                salvarRanking(); // Chama a fun√ß√£o para salvar o ranking
             }
             else {
-                std::cout << "Jogador j· est· no ranking!" << std::endl; // Mensagem informativa
+                std::cout << "Jogador j√° est√° no ranking!" << std::endl; // Mensagem informativa
             }
 
-            // Exibir mensagem de vitÛria ou derrota
+            // Exibir mensagem de vit√≥ria ou derrota
             if (estadoJogo == Vitoria) {
-                exibirMensagem("ParabÈns! VocÍ venceu!");
+                exibirMensagem("Parab√©ns! Voc√™ venceu!");
             }
             else {
                 exibirMensagem("Game Over! Tente novamente.");
@@ -1226,7 +1226,7 @@ public:
             }
         }
 
-        // Verificar se o fantasma est· fora do grid do mapa
+        // Verificar se o fantasma est√° fora do grid do mapa
         if (objeto.left < 0 || objeto.top < 0 ||
             objeto.left + objeto.width > larguraJanela ||
             objeto.top + objeto.height > alturaJanela) {
@@ -1250,10 +1250,10 @@ public:
     bool jogadorJaNoRanking(const std::string& nome) {
         for (const auto& j : ranking) {
             if (j.nome == nome) {
-                return true; // O jogador j· est· no ranking
+                return true; // O jogador j√° est√° no ranking
             }
         }
-        return false; // O jogador n„o est· no ranking
+        return false; // O jogador n√£o est√° no ranking
     }
 
     void exibirMensagemTransicao(const std::string& mensagem) {
@@ -1263,7 +1263,7 @@ public:
             return;
         }
 
-        sf::RenderWindow janelaTransicao(sf::VideoMode(600, 300), "TransiÁ„o");
+        sf::RenderWindow janelaTransicao(sf::VideoMode(600, 300), "Transi√ß√£o");
         sf::Text textoMensagem(mensagem, fonte, 30);
         textoMensagem.setFillColor(sf::Color::White);
         textoMensagem.setPosition(50, 100);
@@ -1319,13 +1319,13 @@ public:
             texturaEscura.clear();
             texturaEscura.draw(camadaEscura);
 
-            // Cria a m·scara de luz ao redor do Pac-Man
+            // Cria a m√°scara de luz ao redor do Pac-Man
             sf::CircleShape luz(30.0f); // Define o raio da luz
             luz.setOrigin(luz.getRadius(), luz.getRadius());
             luz.setPosition(pacman.sprite.getPosition() + sf::Vector2f(tamanhoBloco / 2, tamanhoBloco / 2));
             luz.setFillColor(sf::Color(0, 0, 0, 0)); // Transparente no centro
             luz.setOutlineThickness(200.0f);
-            luz.setOutlineColor(sf::Color(255, 255, 255, 255)); // Clarear ao redor do cÌrculo
+            luz.setOutlineColor(sf::Color(255, 255, 255, 255)); // Clarear ao redor do c√≠rculo
 
             // Aplica a luz na textura escura usando BlendMultiply
             texturaEscura.draw(luz, sf::BlendMultiply);
@@ -1352,7 +1352,7 @@ public:
             for (const auto& fantasma : fantasmas)
                 fantasma->desenhar(janela);
 
-            // Desenha a camada escura com a iluminaÁ„o aplicada
+            // Desenha a camada escura com a ilumina√ß√£o aplicada
             sf::Sprite spriteTexturaEscura(texturaEscura.getTexture());
             janela.draw(spriteTexturaEscura);
         }
@@ -1379,7 +1379,7 @@ public:
                 fantasma->desenhar(janela);
         }
 
-        // Desenha a pontuaÁ„o, vidas e tempo de jogo
+        // Desenha a pontua√ß√£o, vidas e tempo de jogo
         sf::Font fonte;
         if (fonte.loadFromFile("Fonts/pixel.ttf")) {
             sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
@@ -1430,7 +1430,7 @@ public:
             pontos += pontos + 50;
             break;
         default:
-            std::cout << "NÌvel de dificuldade inv·lido!" << std::endl;
+            std::cout << "N√≠vel de dificuldade inv√°lido!" << std::endl;
             break;
         }
     }
@@ -1461,7 +1461,7 @@ public:
             desenhar(relogioJogo);
 
             if (estadoJogo != Jogando) {
-                break; // Encerrar o loop de jogo se o estado n„o for Jogando
+                break; // Encerrar o loop de jogo se o estado n√£o for Jogando
             }
         }
     }
@@ -1511,15 +1511,15 @@ void nivelDificuldade() {
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     if (opcao1.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         dificuldadeEscolhida = Facil;
-                        window.close(); // Fecha a janela apÛs a escolha
+                        window.close(); // Fecha a janela ap√≥s a escolha
                     }
                     else if (opcao2.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         dificuldadeEscolhida = Medio;
-                        window.close(); // Fecha a janela apÛs a escolha
+                        window.close(); // Fecha a janela ap√≥s a escolha
                     }
                     else if (opcao3.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         dificuldadeEscolhida = Dificil;
-                        window.close(); // Fecha a janela apÛs a escolha
+                        window.close(); // Fecha a janela ap√≥s a escolha
                     }
                     else if (desafio.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         dificuldadeEscolhida = Desafio;
@@ -1538,7 +1538,7 @@ void nivelDificuldade() {
         window.draw(desafio);
         window.display();
     }
-    // ApÛs escolher, inicia o jogo com a dificuldade selecionada
+    // Ap√≥s escolher, inicia o jogo com a dificuldade selecionada
     Jogo jogo;
     jogo.dificuldade(dificuldadeEscolhida); // Aplica a dificuldade escolhida
     jogo.executar(); // Inicia o jogo
@@ -1589,7 +1589,7 @@ void menu()
                 {
                     if (jogar.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         window.close(); // Fecha o menu
-                        nivelDificuldade(); // Chama a tela de seleÁ„o de dificuldade
+                        nivelDificuldade(); // Chama a tela de sele√ß√£o de dificuldade
                     }
                     if (ia.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
                         window.close();
@@ -1625,7 +1625,7 @@ void menu()
     }
 }
 
-// FunÁ„o principal para inicializar e executar o jogo
+// Fun√ß√£o principal para inicializar e executar o jogo
 int main()
 {
     menu();
@@ -1635,6 +1635,6 @@ int main()
 
     return 0;
 }
-//Corrigir a movimentaÁao do fantasma 
+//Corrigir a movimenta√ßao do fantasma 
 //Criar novos mapas 
 //Quando fantasma morrer ele nao pode se mxer por 5 segundos
