@@ -75,3 +75,6 @@ Licença
 
 Este projeto foi desenvolvido para fins educacionais, como parte da disciplina Algoritmos II.
 Você é livre para estudar, modificar e aprimorar o código com os devidos créditos.
+
+IMAGEM DO JOGO: 
+<img width="340" height="489" alt="image" src="https://github.com/user-attachments/assets/800c688d-963b-43e1-90e1-d909ed1ec9dd" />
