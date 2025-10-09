@@ -28,7 +28,6 @@ Encapsulamento e abstração de comportamentos;
 
 Herança e polimorfismo (ex: Pinky herdando de Ghost);
 
-Separação de responsabilidades e modularização do código.
 
 
 Funcionalidades Principais:
@@ -76,5 +75,3 @@ Licença
 
 Este projeto foi desenvolvido para fins educacionais, como parte da disciplina Algoritmos II.
 Você é livre para estudar, modificar e aprimorar o código com os devidos créditos.
-
-Deseja que eu gere esse README formatado em Markdown pronto para colar no GitHub (com emojis, links, etc.) ou prefere uma versão mais simples e técnica (sem emojis e cabeçalhos estilizados)?
