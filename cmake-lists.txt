@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.16)
+project(PacmanSFML VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Executável sai em build/bin
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# SFML 2.6.2 baixado e compilado junto com o projeto (linkagem estática)
+option(BUILD_SHARED_LIBS "Compilar bibliotecas como DLL" OFF)
+set(SFML_BUILD_NETWORK OFF CACHE BOOL "" FORCE)
+
+include(FetchContent)
+FetchContent_Declare(SFML
+    GIT_REPOSITORY https://github.com/SFML/SFML.git
+    GIT_TAG 2.6.2
+    GIT_SHALLOW ON
+)
+FetchContent_MakeAvailable(SFML)
+
+add_executable(pacman main.cpp)
+target_link_libraries(pacman PRIVATE sfml-graphics)
+
+# MinGW: embute libstdc++/libgcc para o .exe rodar fora do terminal do MSYS2
+if(MINGW)
+    target_link_options(pacman PRIVATE -static)
+endif()
+
+# Copia os assets para o lado do executável
+foreach(dir Fonts img audio)
+    add_custom_command(TARGET pacman POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_SOURCE_DIR}/${dir} $<TARGET_FILE_DIR:pacman>/${dir}
+        VERBATIM)
+endforeach()
