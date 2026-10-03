@@ -1,0 +1,35 @@
+# Build (CMake)
+build/
+out/
+cmake-build-*/
+
+# Visual Studio (legado)
+.vs/
+x64/
+Debug/
+Release/
+*.user
+*.suo
+*.pdb
+*.ilk
+*.obj
+
+# Binários
+*.exe
+*.dll
+*.lib
+
+# VS Code: versiona só a configuração compartilhável
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Dados gerados em runtime
+ranking.txt
+
+# Sistema operacional
+Thumbs.db
+desktop.ini
+.DS_Store
