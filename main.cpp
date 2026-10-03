@@ -12,6 +12,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <SFML/System.hpp> // Para usar sf::Vector2i
+#include <memory>
+#include <cmath>
+#include <limits>
 
 using namespace std;
 using namespace chrono;
