@@ -28,6 +28,26 @@ const int vidasIniciais = 3;
 const float tempoFantasmaVulneravel = 5.0f;
 const float escalaPacman = 1.0f;
 
+const std::string pastaAssets = "assets/";
+const std::string caminhoFonte = pastaAssets + "fonts/pixel.ttf";
+
+// Carrega uma textura de assets/. Se o arquivo não existir, usa um quadrado
+// colorido do tamanho de um bloco para o jogo continuar rodando.
+void carregarTextura(sf::Texture& textura, const std::string& caminho, sf::Color corReserva = sf::Color::Magenta) {
+    if (!textura.loadFromFile(pastaAssets + caminho)) {
+        std::cerr << "Aviso: textura nao encontrada (" << caminho << "), usando substituta." << std::endl;
+        sf::Image imagem;
+        imagem.create(tamanhoBloco, tamanhoBloco, corReserva);
+        textura.loadFromImage(imagem);
+    }
+}
+
+// Escala o sprite para ocupar exatamente um bloco do mapa, seja qual for o tamanho da imagem
+void ajustarAoBloco(sf::Sprite& sprite) {
+    sf::Vector2u tamanho = sprite.getTexture()->getSize();
+    sprite.setScale(static_cast<float>(tamanhoBloco) / tamanho.x, static_cast<float>(tamanhoBloco) / tamanho.y);
+}
+
 enum EstadoFantasma { Aleatorio, Seguir };
 enum EstadoJogo { Jogando, Vitoria, GameOver };
 enum Direcao { parado, cima, baixo, esquerda, direita };
@@ -194,7 +214,7 @@ void exibirRanking() {
 
     sf::RenderWindow window(sf::VideoMode(1200, 800), "Ranking");
     sf::Font font;
-    if (!font.loadFromFile("Fonts/pixel.ttf")) {
+    if (!font.loadFromFile(caminhoFonte)) {
         std::cerr << "Erro ao carregar a fonte!" << std::endl;
         return;
     }
@@ -289,14 +309,10 @@ public:
         : vidas(vidasIniciais), velocidade(90.0f), fortalecido(false),
         temporizadorFortalecimento(0.0f), frameAtual(0), tempoEntreFrames(0.1f), temporizadorFrame(0.0f) {
 
-        // Carregar texturas
-        for (int i = 0; i < 4; ++i) {
+        // Carregar texturas (3 frames: 0.png, 1.png, 2.png)
+        for (int i = 0; i < 3; ++i) {
             sf::Texture texture;
-            std::string path = "Resource/pacman/" + std::to_string(i) + ".png";
-            if (!texture.loadFromFile(path)) {
-                std::cout << "Erro ao carregar a textura do Pac-Man: " << path << std::endl;
-                exit(1);
-            }
+            carregarTextura(texture, "img/pacman/" + std::to_string(i) + ".png", sf::Color::Yellow);
             texturas.push_back(texture);
         }
 
@@ -778,18 +794,18 @@ public:
 
     Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pacman(0, 0), estadoJogo(Jogando) {
         srand(static_cast<unsigned>(time(0)));
-        sf::Font fonte;
-        if (!fonte.loadFromFile("Fonts/pixel.ttf") ||
-            !texturaParede.loadFromFile("Resource/map/map1.png") ||
-            !texturaPilula.loadFromFile("Resource/item/dot.png") ||
-            !texturaItem.loadFromFile("Resource/item/cherry.png") ||
-            !texturaApple.loadFromFile("Resource/item/apple.png") ||
-            !texturaOrange.loadFromFile("Resource/item/redbull.png") ||
-            !texturaBeer.loadFromFile("Resource/item/beer.png") ||
-            !texturaPilulaFortalecedora.loadFromFile("Resource/item/pellet.png")) {
-            cout << "Erro ao carregar a fonte\n";
-            return;
-        }
+        // Parede: bloco azul sólido gerado em código, no tamanho exato de um bloco
+        sf::Image imagemParede;
+        imagemParede.create(tamanhoBloco, tamanhoBloco, sf::Color(33, 33, 222));
+        texturaParede.loadFromImage(imagemParede);
+
+        carregarTextura(texturaPilula, "img/item/dot.png");
+        carregarTextura(texturaItem, "img/item/cherry.png", sf::Color::Red);
+        carregarTextura(texturaApple, "img/item/apple.png", sf::Color::Green);
+        carregarTextura(texturaOrange, "img/item/redbull.png", sf::Color::Cyan);
+        carregarTextura(texturaBeer, "img/item/beer.png", sf::Color(255, 165, 0));
+        carregarTextura(texturaPilulaFortalecedora, "img/item/pellet.png");
+
         inicializarFase(0);
         criarParedes();
         criarPilulas();
@@ -874,14 +890,14 @@ public:
                     sf::Sprite itemSprite;
                     itemSprite.setTexture(texturaItem);
                     itemSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
-                    itemSprite.setScale(1.0f, 1.0f); // Ajuste a escala conforme necessário
+                    ajustarAoBloco(itemSprite);
                     item.push_back(itemSprite);
                 }
                 else if (mapa[y][x] == 7) {
                     sf::Sprite appleSprite;
                     appleSprite.setTexture(texturaApple);
                     appleSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
-                    appleSprite.setScale(1.0f, 1.0f);
+                    ajustarAoBloco(appleSprite);
                     apple.push_back(appleSprite);
                 }
             }
@@ -895,14 +911,14 @@ public:
                     sf::Sprite orangeSprite;
                     orangeSprite.setTexture(texturaOrange);
                     orangeSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
-                    orangeSprite.setScale(0.35f, 0.35f);
+                    ajustarAoBloco(orangeSprite);
                     orange.push_back(orangeSprite);
                 }
                 else if (mapa[y][x] == 9) {
                     sf::Sprite beerSprite;
                     beerSprite.setTexture(texturaBeer);
                     beerSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
-                    beerSprite.setScale(2.0f, 2.0f);
+                    ajustarAoBloco(beerSprite);
                     beer.push_back(beerSprite);
                 }
             }
@@ -1161,10 +1177,10 @@ public:
         fantasmas.clear();
 
         // Carregar texturas
-        texturaBlinky.loadFromFile("Resource/blinky/d1.png");
-        texturaPinky.loadFromFile("Resource/pinky/d1.png");
-        texturaInky.loadFromFile("Resource/inky/d1.png");
-        texturaClyde.loadFromFile("Resource/clyde/d1.png");
+        carregarTextura(texturaBlinky, "img/ghost/blinky/d1.png", sf::Color::Red);
+        carregarTextura(texturaPinky, "img/ghost/pinky/d1.png", sf::Color(255, 184, 255));
+        carregarTextura(texturaInky, "img/ghost/inky/d1.png", sf::Color::Cyan);
+        carregarTextura(texturaClyde, "img/ghost/clyde/d1.png", sf::Color(255, 184, 82));
 
         // Criar fantasmas com tempos de saída diferentes
         fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, Posicao{ (float)x, (float)y }, Posicao{ 9, 11 }, 2.0f));
@@ -1261,7 +1277,7 @@ public:
 
     void exibirMensagemTransicao(const std::string& mensagem) {
         sf::Font fonte;
-        if (!fonte.loadFromFile("Fonts/pixel.ttf")) {
+        if (!fonte.loadFromFile(caminhoFonte)) {
             std::cerr << "Erro ao carregar a fonte." << std::endl;
             return;
         }
@@ -1282,7 +1298,7 @@ public:
 
     void exibirMensagem(const std::string& mensagem) {
         sf::Font fonte;
-        if (!fonte.loadFromFile("Fonts/pixel.ttf")) {
+        if (!fonte.loadFromFile(caminhoFonte)) {
             cerr << "Erro ao carregar a fonte." << endl;
             return;
         }
@@ -1384,7 +1400,7 @@ public:
 
         // Desenha a pontuação, vidas e tempo de jogo
         sf::Font fonte;
-        if (fonte.loadFromFile("Fonts/pixel.ttf")) {
+        if (fonte.loadFromFile(caminhoFonte)) {
             sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
             textoPontuacao.setPosition(8, 370);
             janela.draw(textoPontuacao);
@@ -1474,7 +1490,7 @@ void nivelDificuldade() {
     sf::RenderWindow window(sf::VideoMode(600, 500), "DIFICULDADE");
     sf::Font font;
 
-    if (!font.loadFromFile("Fonts/pixel.ttf")) {
+    if (!font.loadFromFile(caminhoFonte)) {
         std::cout << "Erro ao carregar a fonte!" << std::endl;
         return;
     }
@@ -1552,7 +1568,7 @@ void menu()
     sf::RenderWindow window(sf::VideoMode(850, 600), "MENU");
     sf::Font font;
 
-    if (!font.loadFromFile("Fonts/pixel.ttf"))
+    if (!font.loadFromFile(caminhoFonte))
     {
         std::cerr << "Erro ao carregar a fonte!" << std::endl;
         return;

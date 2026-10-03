@@ -29,10 +29,8 @@ if(MINGW)
     target_link_options(pacman PRIVATE -static)
 endif()
 
-# Copia os assets para o lado do executável
-foreach(dir Fonts img audio)
-    add_custom_command(TARGET pacman POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_SOURCE_DIR}/${dir} $<TARGET_FILE_DIR:pacman>/${dir}
-        VERBATIM)
-endforeach()
+# Copia a pasta assets/ para o lado do executável
+add_custom_command(TARGET pacman POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:pacman>/assets
+    VERBATIM)
