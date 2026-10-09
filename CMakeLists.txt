@@ -21,7 +21,17 @@ FetchContent_Declare(SFML
 )
 FetchContent_MakeAvailable(SFML)
 
-add_executable(pacman main.cpp)
+add_executable(pacman
+    src/main.cpp
+    src/Fantasma.cpp
+    src/Jogo.cpp
+    src/Mapas.cpp
+    src/Pacman.cpp
+    src/Ranking.cpp
+    src/Recursos.cpp
+    src/Telas.cpp
+    src/Tipos.cpp
+)
 target_link_libraries(pacman PRIVATE sfml-graphics)
 
 # MinGW: embute libstdc++/libgcc para o .exe rodar fora do terminal do MSYS2
