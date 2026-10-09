@@ -32,6 +32,7 @@ const int vidasIniciais = 3;
 const float tempoFantasmaVulneravel = 5.0f;
 const float escalaPacman = 1.0f;
 const float velocidadeFantasma = 2.0f; // Blocos por segundo
+const float dtMaximo = 1.0f / 20.0f;   // Maior passo de tempo por frame (em segundos)
 
 const std::string pastaAssets = "assets/";
 const std::string caminhoFonte = pastaAssets + "fonts/pixel.ttf";
@@ -231,6 +232,7 @@ void exibirRanking() {
         });
 
     sf::RenderWindow window(sf::VideoMode(1200, 800), "Ranking");
+    window.setFramerateLimit(60);
     sf::Font font;
     if (!font.loadFromFile(caminhoFonte)) {
         std::cerr << "Erro ao carregar a fonte!" << std::endl;
@@ -751,6 +753,8 @@ public:
 class Jogo {
 public:
     sf::RenderWindow janela;
+    sf::Font fonte;                  // Carregada uma vez no construtor
+    sf::RenderTexture texturaEscura; // Camada escura do modo Desafio, criada uma vez no construtor
     std::vector<std::unique_ptr<Pacman>> pacmans;
     Pacman pacman;
     std::vector<std::unique_ptr<Fantasma>> fantasmas;
@@ -869,6 +873,13 @@ public:
 
     Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pacman(0, 0), estadoJogo(Jogando) {
         srand(static_cast<unsigned>(time(0)));
+        janela.setFramerateLimit(60);
+
+        if (!fonte.loadFromFile(caminhoFonte)) {
+            std::cerr << "Erro ao carregar a fonte." << std::endl;
+        }
+        texturaEscura.create(larguraJanela, alturaJanela);
+
         // Parede: bloco azul sólido gerado em código, no tamanho exato de um bloco
         sf::Image imagemParede;
         imagemParede.create(tamanhoBloco, tamanhoBloco, sf::Color(33, 33, 222));
@@ -1050,9 +1061,6 @@ public:
         if (estadoJogo != Jogando) return;
 
         float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
-
-        // Processar eventos de entrada
-        processarEventos();
 
         if (todasAsFrutasColetadas()) {
             exibirMensagemTransicao("Fase " + std::to_string(faseAtual + 1) + " Concluída!");
@@ -1284,9 +1292,11 @@ public:
         sf::Clock relogio;
 
         while (janela.isOpen() && estadoJogo == Jogando) {
-            sf::Time dt = relogio.restart();
+            // Limita o passo de tempo: depois de uma pausa (ex.: tela de transição de fase)
+            // o dt seria de segundos, e os personagens dariam um salto atravessando paredes
+            float dt = std::min(relogio.restart().asSeconds(), dtMaximo);
             processarEventos();
-            atualizar(dt.asSeconds());
+            atualizar(dt);
             desenhar(relogioJogo);
             if (estadoJogo != Jogando) break;
         }
@@ -1335,19 +1345,20 @@ public:
     }
 
     void exibirMensagemTransicao(const std::string& mensagem) {
-        sf::Font fonte;
-        if (!fonte.loadFromFile(caminhoFonte)) {
-            std::cerr << "Erro ao carregar a fonte." << std::endl;
-            return;
-        }
-
         sf::RenderWindow janelaTransicao(sf::VideoMode(600, 300), "Transição");
+        janelaTransicao.setFramerateLimit(60);
         sf::Text textoMensagem(mensagem, fonte, 30);
         textoMensagem.setFillColor(sf::Color::White);
         textoMensagem.setPosition(50, 100);
 
         sf::Clock relogio;
-        while (relogio.getElapsedTime().asSeconds() < 3.0f) {
+        while (janelaTransicao.isOpen() && relogio.getElapsedTime().asSeconds() < 3.0f) {
+            // Processa os eventos para o Windows não marcar a janela como "Não respondendo"
+            sf::Event evento;
+            while (janelaTransicao.pollEvent(evento)) {
+                if (evento.type == sf::Event::Closed) janelaTransicao.close();
+            }
+
             janelaTransicao.clear();
             janelaTransicao.draw(textoMensagem);
             janelaTransicao.display();
@@ -1356,13 +1367,8 @@ public:
     }
 
     void exibirMensagem(const std::string& mensagem) {
-        sf::Font fonte;
-        if (!fonte.loadFromFile(caminhoFonte)) {
-            cerr << "Erro ao carregar a fonte." << endl;
-            return;
-        }
-
         sf::RenderWindow janelaMensagem(sf::VideoMode(600, 300), "Mensagem");
+        janelaMensagem.setFramerateLimit(60);
         sf::Text textoMensagem(mensagem, fonte, 24);
         textoMensagem.setFillColor(sf::Color::White);
         textoMensagem.setPosition(50, 80);
@@ -1384,99 +1390,64 @@ public:
     void desenhar(sf::Clock& relogioJogo) {
         janela.clear();
 
-        if (dificuldadeAtual == Desafio) {
-            // Cria uma textura para desenhar a camada escura
-            sf::RenderTexture texturaEscura;
-            texturaEscura.create(larguraJanela, alturaJanela);
+        // Elementos do jogo
+        for (const auto& parede : paredes)
+            janela.draw(parede);
+        for (const auto& pilula : pilulas)
+            janela.draw(pilula);
+        for (const auto& pilulaFortalecedora : pilulasFortalecedoras)
+            janela.draw(pilulaFortalecedora);
+        for (const auto& itemSprite : item)
+            janela.draw(itemSprite);
+        for (const auto& appleSprite : apple)
+            janela.draw(appleSprite);
+        for (const auto& orangeSprite : orange)
+            janela.draw(orangeSprite);
+        for (const auto& beerSprite : beer)
+            janela.draw(beerSprite);
 
-            // Camada escura que cobre toda a tela
+        pacman.desenhar(janela);
+        for (const auto& fantasma : fantasmas)
+            fantasma->desenhar(janela);
+
+        // Modo Desafio: escurece tudo, menos um círculo de luz ao redor do Pac-Man
+        if (dificuldadeAtual == Desafio) {
             sf::RectangleShape camadaEscura(sf::Vector2f(larguraJanela, alturaJanela));
             camadaEscura.setFillColor(sf::Color(0, 0, 0, 220)); // Escuro semitransparente
 
-            // Renderiza a camada escura na textura
-            texturaEscura.clear();
-            texturaEscura.draw(camadaEscura);
-
-            // Cria a máscara de luz ao redor do Pac-Man
             sf::CircleShape luz(30.0f); // Define o raio da luz
             luz.setOrigin(luz.getRadius(), luz.getRadius());
             luz.setPosition(pacman.sprite.getPosition() + sf::Vector2f(tamanhoBloco / 2, tamanhoBloco / 2));
             luz.setFillColor(sf::Color(0, 0, 0, 0)); // Transparente no centro
             luz.setOutlineThickness(200.0f);
-            luz.setOutlineColor(sf::Color(255, 255, 255, 255)); // Clarear ao redor do círculo
+            luz.setOutlineColor(sf::Color(255, 255, 255, 255)); // Mantém o escuro ao redor do círculo
 
-            // Aplica a luz na textura escura usando BlendMultiply
+            // Reaproveita a textura criada no construtor: só redesenha o conteúdo
+            texturaEscura.clear();
+            texturaEscura.draw(camadaEscura);
             texturaEscura.draw(luz, sf::BlendMultiply);
             texturaEscura.display();
 
-            // Desenha os elementos do jogo
-            for (const auto& parede : paredes)
-                janela.draw(parede);
-            for (const auto& pilula : pilulas)
-                janela.draw(pilula);
-            for (const auto& pilulaFortalecedora : pilulasFortalecedoras)
-                janela.draw(pilulaFortalecedora);
-
-            for (const auto& itemSprite : item)
-                janela.draw(itemSprite);
-            for (const auto& appleSprite : apple)
-                janela.draw(appleSprite);
-            for (const auto& orangeSprite : orange)
-                janela.draw(orangeSprite);
-            for (const auto& beerSprite : beer)
-                janela.draw(beerSprite);
-
-            pacman.desenhar(janela);
-            for (const auto& fantasma : fantasmas)
-                fantasma->desenhar(janela);
-
-            // Desenha a camada escura com a iluminação aplicada
-            sf::Sprite spriteTexturaEscura(texturaEscura.getTexture());
-            janela.draw(spriteTexturaEscura);
-        }
-        else
-        {
-            // Modo normal: renderiza o jogo como sempre
-            for (const auto& parede : paredes)
-                janela.draw(parede);
-            for (const auto& pilula : pilulas)
-                janela.draw(pilula);
-            for (const auto& pilulaFortalecedora : pilulasFortalecedoras)
-                janela.draw(pilulaFortalecedora);
-            for (const auto& itemSprite : item)
-                janela.draw(itemSprite);
-            for (const auto& appleSprite : apple)
-                janela.draw(appleSprite);
-            for (const auto& orangeSprite : orange)
-                janela.draw(orangeSprite);
-            for (const auto& beerSprite : beer)
-                janela.draw(beerSprite);
-
-            pacman.desenhar(janela);
-            for (const auto& fantasma : fantasmas)
-                fantasma->desenhar(janela);
+            janela.draw(sf::Sprite(texturaEscura.getTexture()));
         }
 
         // Desenha a pontuação, vidas e tempo de jogo
-        sf::Font fonte;
-        if (fonte.loadFromFile(caminhoFonte)) {
-            sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
-            textoPontuacao.setPosition(8, 370);
-            janela.draw(textoPontuacao);
+        sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
+        textoPontuacao.setPosition(8, 370);
+        janela.draw(textoPontuacao);
 
-            sf::Text textoVidas("Vidas: " + std::to_string(pacman.vidas), fonte, 20);
-            textoVidas.setPosition(8, 390);
-            janela.draw(textoVidas);
+        sf::Text textoVidas("Vidas: " + std::to_string(pacman.vidas), fonte, 20);
+        textoVidas.setPosition(8, 390);
+        janela.draw(textoVidas);
 
-            float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
-            sf::Text textoTempo("Tempo: " + std::to_string(static_cast<int>(tempoDecorrido)) + "s", fonte, 20);
-            textoTempo.setPosition(8, 410);
-            janela.draw(textoTempo);
+        float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
+        sf::Text textoTempo("Tempo: " + std::to_string(static_cast<int>(tempoDecorrido)) + "s", fonte, 20);
+        textoTempo.setPosition(8, 410);
+        janela.draw(textoTempo);
 
-            sf::Text textoMovimentos("Movimentos: " + std::to_string(movimentos), fonte, 20);
-            textoMovimentos.setPosition(8, 430);
-            janela.draw(textoMovimentos);
-        }
+        sf::Text textoMovimentos("Movimentos: " + std::to_string(movimentos), fonte, 20);
+        textoMovimentos.setPosition(8, 430);
+        janela.draw(textoMovimentos);
 
         janela.display();
     }
