@@ -19,7 +19,6 @@ public:
     sf::RenderTexture texturaEscura; // Camada escura do modo Desafio, criada uma vez no construtor
     Pacman pacman;
     std::vector<std::unique_ptr<Fantasma>> fantasmas;
-    std::vector<sf::Sprite> spritesFantasmas;
     sf::Clock relogioJogo; // No início do jogo
     sf::Texture texturaParede;
     sf::Texture texturaPilula;

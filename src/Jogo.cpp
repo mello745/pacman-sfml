@@ -190,7 +190,22 @@ void Jogo::atualizar(float deltaTempo) {
     pacman.atualizarTurbo(deltaTempo);
 
     if (modoAtual == IA) {
-        pacman.moverAutomaticamente(mapa, pilulas, spritesFantasmas, deltaTempo); // Chama o movimento automático
+        // Converte pílulas e fantasmas (fora da casa) em blocos do mapa para a IA
+        auto blocoDe = [](sf::Vector2f pixels) {
+            return sf::Vector2i(static_cast<int>(pixels.x) / tamanhoBloco, static_cast<int>(pixels.y) / tamanhoBloco);
+        };
+        std::vector<sf::Vector2i> blocosComPilula;
+        for (const auto& p : pilulas) blocosComPilula.push_back(blocoDe(p.getPosition()));
+        for (const auto& p : pilulasFortalecedoras) blocosComPilula.push_back(blocoDe(p.getPosition()));
+
+        std::vector<sf::Vector2i> blocosFantasmas;
+        for (const auto& f : fantasmas) {
+            if (f->saiuDaBase) {
+                blocosFantasmas.emplace_back(static_cast<int>(std::round(f->posicao.x)), static_cast<int>(std::round(f->posicao.y)));
+            }
+        }
+
+        pacman.moverAutomaticamente(mapa, blocosComPilula, blocosFantasmas, deltaTempo);
     }
     else if (modoAtual == Manual) {
         // Controle manual

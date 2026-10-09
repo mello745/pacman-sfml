@@ -3,9 +3,10 @@
 #include "Config.h"
 #include "Recursos.h"
 
+#include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <limits>
+#include <queue>
 #include <string>
 
 Pacman::Pacman(float x, float y)
@@ -35,135 +36,100 @@ void Pacman::atualizarAnimacao(float deltaTempo) {
 }
 
 void Pacman::moverAutomaticamente(const Mapa& mapa,
-    const std::vector<sf::Sprite>& pilulas,
-    const std::vector<sf::Sprite>& fantasmas, // Adicionando vetor de fantasmas
+    const std::vector<sf::Vector2i>& blocosComPilula,
+    const std::vector<sf::Vector2i>& blocosFantasmas,
     float deltaTempo) {
-    // Obter posição atual do Pac-Man no grid
-    sf::Vector2i posicaoPacman(
-        static_cast<int>(sprite.getPosition().x / tamanhoBloco),
-        static_cast<int>(sprite.getPosition().y / tamanhoBloco)
-    );
+    float restante = velocidadeAtual() * deltaTempo; // Pixels a andar neste frame
 
-    // Verificar se Pac-Man está no centro de um bloco
-    sf::Vector2f posicaoAtual = sprite.getPosition();
-    bool noCentroDoBloco =
-        static_cast<int>(posicaoAtual.x) % tamanhoBloco == 0 &&
-        static_cast<int>(posicaoAtual.y) % tamanhoBloco == 0;
+    while (restante > 0.0f) {
+        sf::Vector2f posicao = sprite.getPosition();
 
-    if (noCentroDoBloco) {
-        // Encontrar a pílula mais próxima
-        sf::Vector2i destino = posicaoPacman;
-        float menorDistancia = std::numeric_limits<float>::max();
-
-        for (const auto& pilula : pilulas) {
-            sf::Vector2i posicaoPilula(
-                static_cast<int>(pilula.getPosition().x / tamanhoBloco),
-                static_cast<int>(pilula.getPosition().y / tamanhoBloco)
-            );
-
-            float distancia = std::hypot(
-                posicaoPacman.x - posicaoPilula.x,
-                posicaoPacman.y - posicaoPilula.y
-            );
-
-            if (distancia < menorDistancia) {
-                menorDistancia = distancia;
-                destino = posicaoPilula;
-            }
+        // No canto de um bloco (posição múltipla do tamanho do bloco): decide para onde ir.
+        // Também cobre o início da fase e o renascimento, quando o Pac-Man é colocado direto num bloco.
+        if (std::fmod(posicao.x, static_cast<float>(tamanhoBloco)) == 0.0f &&
+            std::fmod(posicao.y, static_cast<float>(tamanhoBloco)) == 0.0f) {
+            sf::Vector2i atual(static_cast<int>(posicao.x) / tamanhoBloco, static_cast<int>(posicao.y) / tamanhoBloco);
+            Direcao d = escolherDirecaoIA(mapa, atual, blocosComPilula, blocosFantasmas);
+            if (d == parado) break;
+            direcaoAtual = converterDirecao(d);
+            proximoBloco = atual + sf::Vector2i(static_cast<int>(direcaoAtual.x), static_cast<int>(direcaoAtual.y));
         }
 
-        // Avaliar todas as direções válidas e encontrar a melhor
-        sf::Vector2i melhorDirecao = { 0, 0 };
-        menorDistancia = std::numeric_limits<float>::max();
-        std::vector<sf::Vector2i> direcoes = {
-            {0, -1},  // Cima
-            {0, 1},   // Baixo
-            {-1, 0},  // Esquerda
-            {1, 0}    // Direita
-        };
-
-        for (const auto& direcao : direcoes) {
-            sf::Vector2i novaPosicao = posicaoPacman + direcao;
-
-            // Verificar se a nova posição está dentro do mapa
-            if (novaPosicao.y < 0 || novaPosicao.y >= static_cast<int>(mapa.size()) ||
-                novaPosicao.x < 0 || novaPosicao.x >= static_cast<int>(mapa[0].size())) {
-                continue;
-            }
-
-            // Verificar se a nova posição não é uma parede
-            if (mapa[novaPosicao.y][novaPosicao.x] == Parede) {
-                continue;
-            }
-
-            // Verificar se a nova posição não é ocupada por um fantasma
-            bool colidiuComFantasma = false;
-            for (const auto& fantasma : fantasmas) {
-                sf::FloatRect rectFantasma = fantasma.getGlobalBounds();
-                if (rectFantasma.contains(novaPosicao.x * tamanhoBloco, novaPosicao.y * tamanhoBloco)) {
-                    colidiuComFantasma = true;
-                    break;
-                }
-            }
-
-            if (colidiuComFantasma) {
-                continue; // Evitar a direção que leva ao fantasma
-            }
-
-            // Calcular a distância até o destino (pílula)
-            float distancia = std::hypot(
-                destino.x - novaPosicao.x,
-                destino.y - novaPosicao.y
-            );
-
-            // Escolher a direção que minimiza a distância e é válida
-            if (distancia < menorDistancia) {
-                menorDistancia = distancia;
-                melhorDirecao = direcao;
-            }
-        }
-
-        // Atualizar a direção apenas se uma direção válida for encontrada
-        if (melhorDirecao != sf::Vector2i(0, 0)) {
-            direcaoAtual = sf::Vector2f(melhorDirecao.x, melhorDirecao.y);
+        sf::Vector2f destino(static_cast<float>(proximoBloco.x * tamanhoBloco), static_cast<float>(proximoBloco.y * tamanhoBloco));
+        float distancia = std::abs(destino.x - posicao.x) + std::abs(destino.y - posicao.y); // Sempre em um eixo só
+        if (restante >= distancia) {
+            sprite.setPosition(destino); // Encaixa exatamente no bloco
+            restante -= distancia;
         }
         else {
-            std::cout << "Nenhuma direção válida encontrada.\n";
+            sprite.move(direcaoAtual * restante);
+            restante = 0.0f;
+        }
+    }
+}
+
+Direcao Pacman::escolherDirecaoIA(const Mapa& mapa, sf::Vector2i atual,
+    const std::vector<sf::Vector2i>& blocosComPilula,
+    const std::vector<sf::Vector2i>& blocosFantasmas) {
+    const int linhas = static_cast<int>(mapa.size());
+    const int colunas = static_cast<int>(mapa[0].size());
+    auto livre = [&](sf::Vector2i b) {
+        return b.x >= 0 && b.y >= 0 && b.x < colunas && b.y < linhas && mapa[b.y][b.x] != Parede;
+    };
+    auto distanciaFantasmas = [&](sf::Vector2i b) {
+        int menor = std::numeric_limits<int>::max();
+        for (const auto& f : blocosFantasmas) menor = std::min(menor, std::abs(f.x - b.x) + std::abs(f.y - b.y));
+        return menor;
+    };
+
+    // Blocos perigosos: perto de um fantasma (a não ser com o Pac-Man fortalecido)
+    std::vector<std::vector<bool>> perigo(linhas, std::vector<bool>(colunas, false));
+    if (!fortalecido) {
+        for (int y = 0; y < linhas; ++y)
+            for (int x = 0; x < colunas; ++x)
+                perigo[y][x] = distanciaFantasmas({ x, y }) <= distanciaSeguraIA;
+    }
+
+    std::vector<std::vector<bool>> temPilula(linhas, std::vector<bool>(colunas, false));
+    for (const auto& b : blocosComPilula) {
+        if (b.x >= 0 && b.y >= 0 && b.x < colunas && b.y < linhas) temPilula[b.y][b.x] = true;
+    }
+
+    // Busca em largura até a pílula mais próxima, sem passar por blocos perigosos
+    std::vector<std::vector<bool>> visitado(linhas, std::vector<bool>(colunas, false));
+    std::vector<std::vector<Direcao>> primeiroPasso(linhas, std::vector<Direcao>(colunas, parado));
+    std::queue<sf::Vector2i> fila;
+    visitado[atual.y][atual.x] = true;
+    fila.push(atual);
+
+    while (!fila.empty()) {
+        sf::Vector2i b = fila.front();
+        fila.pop();
+        if (b != atual && temPilula[b.y][b.x]) {
+            return primeiroPasso[b.y][b.x];
+        }
+        for (Direcao d : { cima, esquerda, baixo, direita }) {
+            sf::Vector2f v = converterDirecao(d);
+            sf::Vector2i proximo(b.x + static_cast<int>(v.x), b.y + static_cast<int>(v.y));
+            if (!livre(proximo) || visitado[proximo.y][proximo.x] || perigo[proximo.y][proximo.x]) continue;
+            visitado[proximo.y][proximo.x] = true;
+            primeiroPasso[proximo.y][proximo.x] = (b == atual) ? d : primeiroPasso[b.y][b.x];
+            fila.push(proximo);
         }
     }
 
-    // Mover Pac-Man na direção atual
-    sf::Vector2f movimento = direcaoAtual * (velocidadeAtual() * deltaTempo);
-    sf::FloatRect novaPosicaoPacman = sprite.getGlobalBounds();
-    novaPosicaoPacman.left += movimento.x;
-    novaPosicaoPacman.top += movimento.y;
-
-    // Verificar colisão antes de mover
-    sf::Vector2i posicaoGridNova(
-        static_cast<int>(novaPosicaoPacman.left / tamanhoBloco),
-        static_cast<int>(novaPosicaoPacman.top / tamanhoBloco)
-    );
-
-    // Verificar se a posição nova está válida e não contém paredes
-    if (posicaoGridNova.y >= 0 && posicaoGridNova.y < static_cast<int>(mapa.size()) &&
-        posicaoGridNova.x >= 0 && posicaoGridNova.x < static_cast<int>(mapa[0].size()) &&
-        mapa[posicaoGridNova.y][posicaoGridNova.x] != Parede) {
-
-        // Verificar se a nova posição colide com algum fantasma
-        for (const auto& fantasma : fantasmas) {
-            if (fantasma.getGlobalBounds().contains(novaPosicaoPacman.left, novaPosicaoPacman.top)) {
-                std::cout << "Colisão com fantasma detectada. Movimento bloqueado.\n";
-                direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colisão com fantasma
-                return;
-            }
+    // Nenhuma pílula alcançável em segurança: foge para o vizinho mais longe dos fantasmas
+    Direcao melhor = parado;
+    int maiorDistancia = blocosFantasmas.empty() ? 0 : distanciaFantasmas(atual);
+    for (Direcao d : { cima, esquerda, baixo, direita }) {
+        sf::Vector2f v = converterDirecao(d);
+        sf::Vector2i proximo(atual.x + static_cast<int>(v.x), atual.y + static_cast<int>(v.y));
+        if (livre(proximo) && distanciaFantasmas(proximo) > maiorDistancia) {
+            maiorDistancia = distanciaFantasmas(proximo);
+            melhor = d;
         }
-
-        sprite.move(movimento);
     }
-    else {
-        std::cout << "Colisão com parede detectada. Movimento bloqueado.\n";
-        direcaoAtual = sf::Vector2f(0.0f, 0.0f); // Parar em caso de colisão
-    }
+    return melhor;
 }
 
 void Pacman::atualizarFortalecimento(float deltaTempo) {

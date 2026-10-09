@@ -16,6 +16,7 @@ public:
     bool fortalecido;
     float temporizadorFortalecimento;
     sf::Vector2f direcaoAtual;
+    sf::Vector2i proximoBloco;       // Modo IA: bloco para onde está andando
     int frameAtual;
     float tempoEntreFrames;
     float temporizadorFrame;
@@ -24,10 +25,17 @@ public:
 
     void atualizarAnimacao(float deltaTempo);
 
+    // Modo IA: anda bloco a bloco; em cada bloco escolhe a direção com escolherDirecaoIA()
     void moverAutomaticamente(const Mapa& mapa,
-        const std::vector<sf::Sprite>& pilulas,
-        const std::vector<sf::Sprite>& fantasmas, // Adicionando vetor de fantasmas
+        const std::vector<sf::Vector2i>& blocosComPilula,
+        const std::vector<sf::Vector2i>& blocosFantasmas,
         float deltaTempo);
+
+    // Primeiro passo do menor caminho até a pílula mais próxima, evitando os blocos perto dos
+    // fantasmas. Se não houver caminho seguro, foge para o vizinho mais longe deles.
+    Direcao escolherDirecaoIA(const Mapa& mapa, sf::Vector2i atual,
+        const std::vector<sf::Vector2i>& blocosComPilula,
+        const std::vector<sf::Vector2i>& blocosFantasmas);
 
     void atualizarFortalecimento(float deltaTempo);
 

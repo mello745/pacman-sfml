@@ -16,6 +16,7 @@ const float escalaPacman = 1.0f;
 const float velocidadeFantasma = 2.0f; // Blocos por segundo (o padrão; muda com a dificuldade)
 const float velocidadePacman = 60.0f;  // Pixels por segundo (cerca de 3,3 blocos/s)
 const float duracaoTurbo = 5.0f;       // Segundos de efeito do energético e da cerveja
+const int distanciaSeguraIA = 2;       // Modo IA: blocos de distância que o Pac-Man mantém dos fantasmas
 const float dtMaximo = 1.0f / 20.0f;   // Maior passo de tempo por frame (em segundos)
 
 const std::string pastaAssets = "assets/";
