@@ -1,16 +1,12 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <ctime>
-#include <cstdlib>
 #include <iostream>
 #include <fstream>
-#include <chrono>
 #include <string>
 #include <algorithm>
 #include <random>
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 #include <SFML/System.hpp> // Para usar sf::Vector2i
 #include <memory>
 #include <cmath>
@@ -21,13 +17,10 @@
 #include <optional>
 
 using namespace std;
-using namespace chrono;
 
 const int tamanhoBloco = 18;
 const int larguraJanela = 340;
 const int alturaJanela = 500;
-const int numLinhas = alturaJanela / tamanhoBloco;
-const int numColunas = larguraJanela / tamanhoBloco;
 const int vidasIniciais = 3;
 const float tempoFantasmaVulneravel = 5.0f;
 const float escalaPacman = 1.0f;
@@ -85,93 +78,6 @@ struct Posicao {
 
     float distanciaAte(const Posicao& other) const {
         return std::sqrt(std::pow(x - other.x, 2) + std::pow(y - other.y, 2));
-    }
-};
-
-struct Node {
-    int x, y;
-    float g, h;
-    Node* parent;
-
-    Node(int x, int y, float g, float h, Node* parent = nullptr)
-        : x(x), y(y), g(g), h(h), parent(parent) {}
-
-    float f() const { return g + h; }
-
-    bool operator>(const Node& other) const {
-        return f() > other.f();
-    }
-};
-
-class PathFinder {
-public:
-    static std::vector<sf::Vector2i> buscarCaminho(const std::vector<std::vector<int>>& mapa,
-        sf::Vector2i inicio, sf::Vector2i destino) {
-        std::priority_queue<Node, std::vector<Node>, std::greater<>> abertos;
-        std::unordered_set<int> fechados;
-
-        auto key = [&](int x, int y) { return y * mapa[0].size() + x; };
-
-        auto heuristica = [&](int x1, int y1, int x2, int y2) {
-            return static_cast<float>(abs(x1 - x2) + abs(y1 - y2)); // Distância de Manhattan
-            };
-
-        abertos.emplace(inicio.x, inicio.y, 0, heuristica(inicio.x, inicio.y, destino.x, destino.y));
-
-        while (!abertos.empty()) {
-            Node atual = abertos.top();
-            abertos.pop();
-
-            // Se destino alcançado
-            if (atual.x == destino.x && atual.y == destino.y) {
-                return reconstruirCaminho(&atual);
-            }
-
-            // Marca o nó atual como fechado
-            fechados.insert(key(atual.x, atual.y));
-
-            // Vizinhos (cima, baixo, esquerda, direita)
-            for (auto& vizinho : getVizinhos(atual.x, atual.y, mapa)) {
-                if (fechados.count(key(vizinho.x, vizinho.y)) || mapa[vizinho.y][vizinho.x] == 0) {
-                    continue;
-                }
-
-                float gNovo = atual.g + 1;
-                float hNovo = heuristica(vizinho.x, vizinho.y, destino.x, destino.y);
-
-                abertos.emplace(vizinho.x, vizinho.y, gNovo, hNovo, new Node(atual.x, atual.y, gNovo, hNovo, nullptr));
-            }
-        }
-
-        return {}; // Nenhum caminho encontrado
-    }
-
-private:
-    static std::vector<sf::Vector2i> getVizinhos(int x, int y, const std::vector<std::vector<int>>& mapa) {
-        std::vector<sf::Vector2i> vizinhos;
-        int dx[] = { 0, 0, -1, 1 };
-        int dy[] = { -1, 1, 0, 0 };
-
-        for (int i = 0; i < 4; ++i) {
-            int nx = x + dx[i];
-            int ny = y + dy[i];
-
-            if (nx >= 0 && nx < mapa[0].size() && ny >= 0 && ny < mapa.size()) {
-                vizinhos.emplace_back(nx, ny);
-            }
-        }
-
-        return vizinhos;
-    }
-
-    static std::vector<sf::Vector2i> reconstruirCaminho(Node* no) {
-        std::vector<sf::Vector2i> caminho;
-        while (no) {
-            caminho.emplace_back(no->x, no->y);
-            no = no->parent;
-        }
-        std::reverse(caminho.begin(), caminho.end());
-        return caminho;
     }
 };
 
@@ -311,7 +217,6 @@ class Pacman {
 public:
     sf::Sprite sprite;
     std::vector<sf::Texture> texturas;
-    std::vector<sf::Sprite> paredes;
     int vidas;
     float velocidade;
     bool fortalecido;
@@ -320,12 +225,6 @@ public:
     int frameAtual;
     float tempoEntreFrames;
     float temporizadorFrame;
-    sf::Vector2f direcao;
-    float velocidadeTemporaria;
-    sf::Clock clock;
-    float deltaTempo = clock.restart().asSeconds();
-    Direcao dir = parado;
-    sf::Vector2f movimento = converterDirecao(dir) * velocidade * deltaTempo;
 
     Pacman(float x, float y)
         : vidas(vidasIniciais), velocidade(90.0f), fortalecido(false),
@@ -351,11 +250,6 @@ public:
             frameAtual = (frameAtual + 1) % texturas.size(); // Alterna entre todos os frames
             sprite.setTexture(texturas[frameAtual]);
         }
-    }
-
-    void mover(float deltaTempo) {
-        sf::Vector2f movimentoLocal = direcao / static_cast<float>(tamanhoBloco) * velocidadeTemporaria * deltaTempo;
-        sprite.move(movimentoLocal);
     }
 
     void moverAutomaticamente(const std::vector<std::vector<int>>& mapa,
@@ -490,15 +384,6 @@ public:
         }
     }
 
-    bool verificarColisaoParede(const sf::FloatRect& novaPosicaoPacman) {
-        for (const auto& parede : paredes) {
-            if (novaPosicaoPacman.intersects(parede.getGlobalBounds())) {
-                return true; // Colisão detectada
-            }
-        }
-        return false; // Sem colisão
-    }
-
     void atualizarFortalecimento(float deltaTempo) {
         if (fortalecido) {
             temporizadorFortalecimento -= deltaTempo;
@@ -530,15 +415,14 @@ public:
     Posicao posicao;              // Em blocos (x = coluna, y = linha)
     Posicao scatterTarget;
     std::string name;
-    float detectionRange;
     bool saiuDaBase = false;
     float tempoParaTrocarEstado = duracaoAleatorio;
     Direcao direcao = parado;
     sf::Vector2i proximoBloco;    // Bloco para onde o fantasma está andando
     float tempoAteSaida = 0.0f;
 
-    Fantasma(sf::Texture& texture, Posicao startPos, Posicao scatterPos, const std::string& ghostName, float range)
-        : posicao(startPos), scatterTarget(scatterPos), name(ghostName), detectionRange(range),
+    Fantasma(sf::Texture& texture, Posicao startPos, Posicao scatterPos, const std::string& ghostName)
+        : posicao(startPos), scatterTarget(scatterPos), name(ghostName),
         proximoBloco(static_cast<int>(startPos.x), static_cast<int>(startPos.y)) {
         sprite.setTexture(texture);
         sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
@@ -695,8 +579,8 @@ public:
 
 class Blinky : public Fantasma {
 public:
-    Blinky(sf::Texture& texture, Posicao startPos, Posicao scatterPos, float range)
-        : Fantasma(texture, startPos, scatterPos, "Blinky", 1.0f) {}
+    Blinky(sf::Texture& texture, Posicao startPos, Posicao scatterPos)
+        : Fantasma(texture, startPos, scatterPos, "Blinky") {}
     Posicao calcularAlvo(const Posicao& pacmanPos, Direcao) override {
         return pacmanPos; // Alvo direto: posição do Pac-Man
     }
@@ -704,8 +588,8 @@ public:
 
 class Pinky : public Fantasma {
 public:
-    Pinky(sf::Texture& texture, Posicao startPos, Posicao scatterPos, float range)
-        : Fantasma(texture, startPos, scatterPos, "Pinky", 2.0f) {}
+    Pinky(sf::Texture& texture, Posicao startPos, Posicao scatterPos)
+        : Fantasma(texture, startPos, scatterPos, "Pinky") {}
     Posicao calcularAlvo(const Posicao& pacmanPos, Direcao pacmanDir) override {
         Posicao target = pacmanPos;
         switch (pacmanDir) {
@@ -723,8 +607,8 @@ class Inky : public Fantasma {
 public:
     Posicao blinkyPos;
 
-    Inky(sf::Texture& texture, Posicao startPos, Posicao scatterPos, float range)
-        : Fantasma(texture, startPos, scatterPos, "Inky", 3.0f), blinkyPos(startPos) {}
+    Inky(sf::Texture& texture, Posicao startPos, Posicao scatterPos)
+        : Fantasma(texture, startPos, scatterPos, "Inky"), blinkyPos(startPos) {}
     Posicao calcularAlvo(const Posicao& pacmanPos, Direcao pacmanDir) override {
         Posicao target = pacmanPos;
         switch (pacmanDir) {
@@ -742,11 +626,10 @@ public:
 
 class Clyde : public Fantasma {
 public:
-    Clyde(sf::Texture& texture, Posicao startPos, Posicao scatterPos, float range)
-        : Fantasma(texture, startPos, scatterPos, "Clyde", 4.0f) {}
+    Clyde(sf::Texture& texture, Posicao startPos, Posicao scatterPos)
+        : Fantasma(texture, startPos, scatterPos, "Clyde") {}
     Posicao calcularAlvo(const Posicao& pacmanPos, Direcao) override {
-        float distancia = std::sqrt(std::pow(pacmanPos.x - posicao.x, 2) + std::pow(pacmanPos.y - posicao.y, 2));
-        return (distancia > 8.0f) ? pacmanPos : scatterTarget;
+        return (posicao.distanciaAte(pacmanPos) > 8.0f) ? pacmanPos : scatterTarget;
     }
 };
 
@@ -755,12 +638,10 @@ public:
     sf::RenderWindow janela;
     sf::Font fonte;                  // Carregada uma vez no construtor
     sf::RenderTexture texturaEscura; // Camada escura do modo Desafio, criada uma vez no construtor
-    std::vector<std::unique_ptr<Pacman>> pacmans;
     Pacman pacman;
     std::vector<std::unique_ptr<Fantasma>> fantasmas;
     std::vector<sf::Sprite> spritesFantasmas;
     sf::Clock relogioJogo; // No início do jogo
-    sf::RectangleShape parede;
     sf::Texture texturaParede;
     sf::Texture texturaPilula;
     sf::Texture texturaItem;
@@ -771,12 +652,6 @@ public:
     sf::Texture texturaBlinky, texturaPinky, texturaInky, texturaClyde;
     EstadoJogo estadoJogo;
     sf::Vector2f proximaDirecao;
-    sf::Vector2i calcularDestinoFuga(const sf::Vector2i& posicaoFantasma, const sf::Vector2i& posicaoPacman) {
-        int dx = posicaoFantasma.x - posicaoPacman.x;
-        int dy = posicaoFantasma.y - posicaoPacman.y;
-
-        return sf::Vector2i(posicaoFantasma.x + dx, posicaoFantasma.y + dy);
-    }
     int pontos = 0;
 
     int maxVidas = 5; // Limite superior de vidas permitido
@@ -789,14 +664,9 @@ public:
     std::vector<sf::Sprite> orange;
     std::vector<sf::Sprite> beer;
     std::vector<sf::Sprite> pilulasFortalecedoras;
-    float tempoInvulneravel = 2.0f; // 2 segundos de invulnerabilidade
-    bool invulneravel = true;
-    int fase = 0;
     int faseAtual = 0;
     int movimentos = 0;
-    NivelDificuldade dificuldadeAtual;
-    bool saiuDaBase = false;
-    float tempoAteSaida = 5.0f;
+    NivelDificuldade dificuldadeAtual = Facil;
     ModoJogo modoAtual = Manual; // Inicialmente, o modo é Manual
 
     std::vector<std::vector<std::vector<int>>> mapas = {
@@ -872,7 +742,6 @@ public:
     };
 
     Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pacman(0, 0), estadoJogo(Jogando) {
-        srand(static_cast<unsigned>(time(0)));
         janela.setFramerateLimit(60);
 
         if (!fonte.loadFromFile(caminhoFonte)) {
@@ -1034,33 +903,8 @@ public:
         return parado; // Caso nenhuma direção seja identificada
     }
 
-    void jogarComIA() {
-        Jogo jogo;
-        jogo.pacman.vidas = 3;  // Configuração inicial do Pac-Man
-        jogo.dificuldade(Medio);  // Ajuste a dificuldade se necessário
-
-        sf::Clock relogio;
-
-        while (jogo.janela.isOpen() && jogo.estadoJogo == Jogando) {
-            sf::Time dt = relogio.restart();
-
-            jogo.atualizar(dt.asSeconds());
-            pacman.moverAutomaticamente(mapa, pilulas, spritesFantasmas, dt.asSeconds());  // Passa deltaTime como argumento
-            jogo.desenhar(relogio);
-        }
-
-        if (jogo.estadoJogo == Vitoria) {
-            jogo.exibirMensagem("Parabéns! Você venceu!");
-        }
-        else if (jogo.estadoJogo == GameOver) {
-            jogo.exibirMensagem("Game Over! Tente novamente.");
-        }
-    }
-
     void atualizar(float deltaTempo) {
         if (estadoJogo != Jogando) return;
-
-        float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
 
         if (todasAsFrutasColetadas()) {
             exibirMensagemTransicao("Fase " + std::to_string(faseAtual + 1) + " Concluída!");
@@ -1275,16 +1119,16 @@ public:
         }
 
         // Criar fantasmas com tempos de saída diferentes
-        fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, casa[0], Posicao{ 9, 11 }, 2.0f));
+        fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, casa[0], Posicao{ 9, 11 }));
         fantasmas.back()->tempoAteSaida = 2.0f; // Sai após 2 segundos
 
-        fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, casa[1], Posicao{ 10, 12 }, 5.0f));
+        fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, casa[1], Posicao{ 10, 12 }));
         fantasmas.back()->tempoAteSaida = 4.0f; // Sai após 4 segundos
 
-        fantasmas.push_back(std::make_unique<Inky>(texturaInky, casa[2], Posicao{ 8, 12 }, 10.0f));
+        fantasmas.push_back(std::make_unique<Inky>(texturaInky, casa[2], Posicao{ 8, 12 }));
         fantasmas.back()->tempoAteSaida = 6.0f; // Sai após 6 segundos
 
-        fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, casa[3], Posicao{ 9, 12 }, 15.0f));
+        fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, casa[3], Posicao{ 9, 12 }));
         fantasmas.back()->tempoAteSaida = 8.0f; // Sai após 8 segundos
     }
 
@@ -1330,17 +1174,6 @@ public:
             return true;
         }
 
-        return false;
-    }
-
-    bool verificarColisaoFantasmas(const Fantasma& fantasmaAtual) {
-        for (const auto& outroFantasma : fantasmas) {
-            if (outroFantasma.get() != &fantasmaAtual) {
-                if (fantasmaAtual.sprite.getGlobalBounds().intersects(outroFantasma->sprite.getGlobalBounds())) {
-                    return true;
-                }
-            }
-        }
         return false;
     }
 
@@ -1484,36 +1317,6 @@ public:
         }
     }
 
-    void rodar() {
-        sf::Clock relogio;
-
-        while (janela.isOpen()) {
-            sf::Event evento;
-            while (janela.pollEvent(evento)) {
-                if (evento.type == sf::Event::Closed) {
-                    janela.close();
-                }
-
-                if (evento.type == sf::Event::KeyPressed) {
-                    switch (evento.key.code) {
-                    case sf::Keyboard::Up:    proximaDirecao = sf::Vector2f(0, -1); break;
-                    case sf::Keyboard::Down:  proximaDirecao = sf::Vector2f(0, 1); break;
-                    case sf::Keyboard::Left:  proximaDirecao = sf::Vector2f(-1, 0); break;
-                    case sf::Keyboard::Right: proximaDirecao = sf::Vector2f(1, 0); break;
-                    default: break;
-                    }
-                }
-            }
-
-            float deltaTempo = relogio.restart().asSeconds();
-            atualizar(deltaTempo);
-            desenhar(relogioJogo);
-
-            if (estadoJogo != Jogando) {
-                break; // Encerrar o loop de jogo se o estado não for Jogando
-            }
-        }
-    }
 };
 
 // Tela de escolha de dificuldade. Retorna vazio se o jogador fechar a janela ou apertar Esc
