@@ -31,6 +31,7 @@ const int numColunas = larguraJanela / tamanhoBloco;
 const int vidasIniciais = 3;
 const float tempoFantasmaVulneravel = 5.0f;
 const float escalaPacman = 1.0f;
+const float velocidadeFantasma = 2.0f; // Blocos por segundo
 
 const std::string pastaAssets = "assets/";
 const std::string caminhoFonte = pastaAssets + "fonts/pixel.ttf";
@@ -65,6 +66,16 @@ sf::Vector2f converterDirecao(Direcao dir) {
     case esquerda: return { -1, 0 };
     case direita: return { 1, 0 };
     default: return { 0, 0 };
+    }
+}
+
+Direcao direcaoOposta(Direcao dir) {
+    switch (dir) {
+    case cima: return baixo;
+    case baixo: return cima;
+    case esquerda: return direita;
+    case direita: return esquerda;
+    default: return parado;
     }
 }
 
@@ -509,88 +520,80 @@ public:
 
 class Fantasma {
 public:
+    static constexpr float duracaoAleatorio = 7.0f; // Segundos andando sem rumo
+    static constexpr float duracaoSeguir = 20.0f;   // Segundos perseguindo o Pac-Man
+
     sf::Sprite sprite;
     EstadoFantasma estadoAtual = Aleatorio;
-    Posicao posicao;
+    Posicao posicao;              // Em blocos (x = coluna, y = linha)
     Posicao scatterTarget;
     std::string name;
     float detectionRange;
-    float modeTimer = 0.0f;
-    const float modeDuration = 7.0f;
     bool saiuDaBase = false;
-    float tempoParaTrocarEstado = 5.0f;
-    Direcao direcao = parado; // Adicionado para armazenar a direção atual
+    float tempoParaTrocarEstado = duracaoAleatorio;
+    Direcao direcao = parado;
+    sf::Vector2i proximoBloco;    // Bloco para onde o fantasma está andando
     float tempoAteSaida = 0.0f;
 
     Fantasma(sf::Texture& texture, Posicao startPos, Posicao scatterPos, const std::string& ghostName, float range)
-        : posicao(startPos), scatterTarget(scatterPos), name(ghostName), detectionRange(range) {
+        : posicao(startPos), scatterTarget(scatterPos), name(ghostName), detectionRange(range),
+        proximoBloco(static_cast<int>(startPos.x), static_cast<int>(startPos.y)) {
         sprite.setTexture(texture);
         sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
     }
 
     virtual Posicao calcularAlvo(const Posicao& pacmanPos, Direcao pacmanDir) = 0;
 
+    // Alterna entre andar sem rumo e perseguir o Pac-Man
     void atualizarModo(float deltaTime) {
         tempoParaTrocarEstado -= deltaTime;
         if (tempoParaTrocarEstado <= 0) {
-            estadoAtual = (estadoAtual == Seguir) ? Seguir : Aleatorio; // Alterna estado
+            estadoAtual = (estadoAtual == Seguir) ? Aleatorio : Seguir;
+            tempoParaTrocarEstado = (estadoAtual == Seguir) ? duracaoSeguir : duracaoAleatorio;
         }
     }
 
-    void moverParaAlvo(const Posicao& target, float speed, float deltaTime, const std::vector<std::vector<int>>& mapa) {
-        Posicao direction = { target.x - posicao.x, target.y - posicao.y };
-        float magnitude = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (magnitude > 0) {
-            direction.x /= magnitude;
-            direction.y /= magnitude;
-
-            Posicao novaPosicao = {
-                posicao.x + direction.x * speed * deltaTime,
-                posicao.y + direction.y * speed * deltaTime
-            };
-
-            if (!verificarColisaoParede(novaPosicao, mapa)) {
-                posicao = novaPosicao;
-                sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
-            }
-        }
-    }
-
-    void moverAleatoriamente(float speed, float deltaTime, const std::vector<std::vector<int>>& mapa) {
-        if (direcao == parado) {
-            escolherNovaDirecao(mapa);
-        }
-
-        Posicao novaPosicao = posicao;
-
-        switch (direcao) {
-        case cima: novaPosicao.y -= speed * deltaTime; break;
-        case baixo: novaPosicao.y += speed * deltaTime; break;
-        case esquerda: novaPosicao.x -= speed * deltaTime; break;
-        case direita: novaPosicao.x += speed * deltaTime; break;
-        default: break;
-        }
-
-        if (!verificarColisaoParede(novaPosicao, mapa)) {
-            posicao = novaPosicao;
-            sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
-        }
-        else {
-            escolherNovaDirecao(mapa); // Muda de direção ao colidir com uma parede
-        }
-    }
-
-    void update(const Posicao& pacmanPos, Direcao pacmanDir, float speed, float deltaTime, const std::vector<std::vector<int>>& mapa) {
+    // Anda bloco a bloco: só escolhe uma nova direção ao chegar no centro de um bloco.
+    // Com o Pac-Man fortalecido (assustado = true), anda sem rumo em vez de perseguir.
+    void update(const Posicao& pacmanPos, Direcao pacmanDir, bool assustado, float speed, float deltaTime, const std::vector<std::vector<int>>& mapa) {
         atualizarModo(deltaTime);
 
-        if (estadoAtual == Seguir) {
-            Posicao target = calcularAlvo(pacmanPos, pacmanDir);
-            moverParaAlvo(target, speed, deltaTime, mapa);
+        float restante = speed * deltaTime;
+        while (restante > 0.0f) {
+            if (posicao.x == proximoBloco.x && posicao.y == proximoBloco.y) {
+                bool perseguir = (estadoAtual == Seguir) && !assustado;
+                Posicao alvo = perseguir ? calcularAlvo(pacmanPos, pacmanDir) : posicao;
+                escolherNovaDirecao(mapa, alvo, perseguir);
+                if (direcao == parado) break; // Sem saída
+                sf::Vector2f passoDirecao = converterDirecao(direcao);
+                proximoBloco += sf::Vector2i(static_cast<int>(passoDirecao.x), static_cast<int>(passoDirecao.y));
+            }
+
+            float dx = proximoBloco.x - posicao.x;
+            float dy = proximoBloco.y - posicao.y;
+            float distancia = std::abs(dx) + std::abs(dy); // Sempre em um eixo só
+            if (restante >= distancia) {
+                posicao = { static_cast<float>(proximoBloco.x), static_cast<float>(proximoBloco.y) }; // Encaixa no centro
+                restante -= distancia;
+            }
+            else {
+                posicao.x += dx / distancia * restante;
+                posicao.y += dy / distancia * restante;
+                restante = 0.0f;
+            }
         }
-        else if (estadoAtual == Aleatorio) {
-            moverAleatoriamente(speed, deltaTime, mapa);
-        }
+
+        sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
+    }
+
+    // Comido pelo Pac-Man: volta para a casa e espera 5 s antes de sair de novo
+    void voltarParaCasa() {
+        posicao = scatterTarget;
+        proximoBloco = sf::Vector2i(static_cast<int>(scatterTarget.x), static_cast<int>(scatterTarget.y));
+        direcao = parado;
+        saiuDaBase = false;
+        tempoAteSaida = 5.0f;
+        sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
     }
 
     bool verificarColisaoParede(const Posicao& posicao, const std::vector<std::vector<int>>& mapa) {
@@ -604,20 +607,83 @@ public:
         return mapa[y][x] <= 0; // Valores menores ou iguais a 0 são paredes
     }
 
-    void escolherNovaDirecao(const std::vector<std::vector<int>>& mapa) {
-        std::vector<Direcao> direcoesPossiveis;
+    // Primeiro passo do menor caminho (busca em largura) até o bloco livre mais próximo do alvo.
+    // Retorna "parado" se o fantasma já está nesse bloco.
+    Direcao direcaoParaAlvo(const std::vector<std::vector<int>>& mapa, const Posicao& alvo) {
+        const int linhas = static_cast<int>(mapa.size());
+        const int colunas = static_cast<int>(mapa[0].size());
+        sf::Vector2i inicio(static_cast<int>(std::round(posicao.x)), static_cast<int>(std::round(posicao.y)));
 
-        if (!verificarColisaoParede({ posicao.x, posicao.y - 1 }, mapa)) direcoesPossiveis.push_back(cima);
-        if (!verificarColisaoParede({ posicao.x, posicao.y + 1 }, mapa)) direcoesPossiveis.push_back(baixo);
-        if (!verificarColisaoParede({ posicao.x - 1, posicao.y }, mapa)) direcoesPossiveis.push_back(esquerda);
-        if (!verificarColisaoParede({ posicao.x + 1, posicao.y }, mapa)) direcoesPossiveis.push_back(direita);
+        std::vector<std::vector<bool>> visitado(linhas, std::vector<bool>(colunas, false));
+        std::vector<std::vector<Direcao>> primeiroPasso(linhas, std::vector<Direcao>(colunas, parado));
+        std::queue<sf::Vector2i> fila;
+        visitado[inicio.y][inicio.x] = true;
+        fila.push(inicio);
 
-        if (!direcoesPossiveis.empty()) {
-            std::random_device rd;
-            std::default_random_engine gen(rd());
-            std::shuffle(direcoesPossiveis.begin(), direcoesPossiveis.end(), gen);
-            direcao = direcoesPossiveis.front();
+        sf::Vector2i melhor = inicio;
+        float menorDistancia = std::hypot(inicio.x - alvo.x, inicio.y - alvo.y);
+
+        while (!fila.empty()) {
+            sf::Vector2i atual = fila.front();
+            fila.pop();
+
+            float distancia = std::hypot(atual.x - alvo.x, atual.y - alvo.y);
+            if (distancia < menorDistancia) {
+                menorDistancia = distancia;
+                melhor = atual;
+            }
+
+            for (Direcao d : { cima, esquerda, baixo, direita }) {
+                sf::Vector2f v = converterDirecao(d);
+                sf::Vector2i proximo(atual.x + static_cast<int>(v.x), atual.y + static_cast<int>(v.y));
+                if (verificarColisaoParede({ static_cast<float>(proximo.x), static_cast<float>(proximo.y) }, mapa) ||
+                    visitado[proximo.y][proximo.x]) {
+                    continue;
+                }
+                visitado[proximo.y][proximo.x] = true;
+                primeiroPasso[proximo.y][proximo.x] = (atual == inicio) ? d : primeiroPasso[atual.y][atual.x];
+                fila.push(proximo);
+            }
         }
+
+        return primeiroPasso[melhor.y][melhor.x];
+    }
+
+    // Escolhe a direção no centro de um bloco.
+    // Perseguindo: segue o menor caminho até o alvo.
+    // Senão: sorteia entre os vizinhos livres, sem voltar para trás (a não ser em beco sem saída).
+    void escolherNovaDirecao(const std::vector<std::vector<int>>& mapa, const Posicao& alvo, bool perseguir) {
+        static std::mt19937 gerador(std::random_device{}());
+
+        if (perseguir) {
+            Direcao caminho = direcaoParaAlvo(mapa, alvo);
+            if (caminho != parado) {
+                direcao = caminho;
+                return;
+            }
+            // Já está no alvo: continua andando sem rumo
+        }
+
+        auto vizinho = [&](Direcao d) {
+            sf::Vector2f v = converterDirecao(d);
+            return Posicao{ posicao.x + v.x, posicao.y + v.y };
+        };
+
+        std::vector<Direcao> possiveis;
+        for (Direcao d : { cima, esquerda, baixo, direita }) {
+            if (d != direcaoOposta(direcao) && !verificarColisaoParede(vizinho(d), mapa)) {
+                possiveis.push_back(d);
+            }
+        }
+
+        if (possiveis.empty()) { // Beco sem saída: só resta voltar
+            Direcao volta = direcaoOposta(direcao);
+            direcao = (volta != parado && !verificarColisaoParede(vizinho(volta), mapa)) ? volta : parado;
+            return;
+        }
+
+        std::uniform_int_distribution<size_t> sorteio(0, possiveis.size() - 1);
+        direcao = possiveis[sorteio(gerador)];
     }
 
     void desenhar(sf::RenderWindow& janela) {
@@ -1028,36 +1094,28 @@ public:
             }
         }
   
-        for (auto& fantasma : fantasmas) {
-            Direcao direcaoPacman = converterParaDirecao(pacman.direcaoAtual);
-            Posicao pacmanPos = { pacman.sprite.getPosition().x / tamanhoBloco, pacman.sprite.getPosition().y / tamanhoBloco };
-
-            fantasma->update(pacmanPos, direcaoPacman, 2.0f, deltaTempo, mapa); // Reduza o valor de speed
-        }
+        // Atualiza cada fantasma UMA vez por frame
+        Direcao direcaoPacman = converterParaDirecao(pacman.direcaoAtual);
+        sf::FloatRect corpoPacman = pacman.sprite.getGlobalBounds();
+        Posicao pacmanPos = { // Centro do Pac-Man, em blocos
+            (corpoPacman.left + corpoPacman.width / 2) / tamanhoBloco - 0.5f,
+            (corpoPacman.top + corpoPacman.height / 2) / tamanhoBloco - 0.5f
+        };
 
         for (auto& fantasma : fantasmas) {
             if (!fantasma->saiuDaBase) {
-                // Reduz o tempo para saída
                 fantasma->tempoAteSaida -= deltaTempo;
-
-                if (fantasma->tempoAteSaida <= 0.0f) {
-                    fantasma->saiuDaBase = true;
-                    std::cout << "Fantasma " << fantasma->name << " saiu da base." << std::endl;
-                }
-                else {
-                    // Mantém o fantasma na base
-                    fantasma->sprite.setPosition(fantasma->posicao.x * tamanhoBloco, fantasma->posicao.y * tamanhoBloco);
-                }
+                if (fantasma->tempoAteSaida > 0.0f) continue; // Ainda esperando na casa
+                fantasma->saiuDaBase = true;
             }
 
-            // Atualiza o movimento do fantasma se ele já saiu
-            if (fantasma->saiuDaBase) {
-                Direcao direcaoPacman = converterParaDirecao(pacman.direcaoAtual);
-                Posicao pacmanPos = { pacman.sprite.getPosition().x / tamanhoBloco, pacman.sprite.getPosition().y / tamanhoBloco };
-                fantasma->update(pacmanPos, direcaoPacman, 2.0f, deltaTempo, mapa); // Ajuste a velocidade conforme necessário
+            // Inky calcula o alvo a partir da posição atual do Blinky (sempre o primeiro da lista)
+            if (auto* inky = dynamic_cast<Inky*>(fantasma.get())) {
+                inky->blinkyPos = fantasmas[0]->posicao;
             }
+
+            fantasma->update(pacmanPos, direcaoPacman, pacman.fortalecido, velocidadeFantasma, deltaTempo, mapa);
         }
-    
 
         // Verificar colisões entre Pac-Man e pilulas
         for (auto it = pilulas.begin(); it != pilulas.end(); ) {
@@ -1135,8 +1193,7 @@ public:
             if (pacman.sprite.getGlobalBounds().intersects(fantasma->sprite.getGlobalBounds())) {
                 if (pacman.fortalecido) {
                     // Pac-Man come o fantasma
-                    fantasma->posicao = fantasma->scatterTarget; // Move para a posição de dispersão
-                    fantasma->sprite.setPosition(fantasma->scatterTarget.x * tamanhoBloco, fantasma->scatterTarget.y * tamanhoBloco);
+                    fantasma->voltarParaCasa(); // Volta para a casa e espera 5 s
                     pontos += 200; // Adiciona pontos por comer o fantasma
                 }
                 else {
@@ -1645,6 +1702,4 @@ int main()
         }
     }
 }
-//Corrigir a movimentaçao do fantasma 
-//Criar novos mapas 
-//Quando fantasma morrer ele nao pode se mxer por 5 segundos
+//Criar novos mapas
