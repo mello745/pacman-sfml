@@ -806,12 +806,12 @@ public:
         carregarTextura(texturaBeer, "img/item/beer.png", sf::Color(255, 165, 0));
         carregarTextura(texturaPilulaFortalecedora, "img/item/pellet.png");
 
+        carregarTextura(texturaBlinky, "img/ghost/blinky/d1.png", sf::Color::Red);
+        carregarTextura(texturaPinky, "img/ghost/pinky/d1.png", sf::Color(255, 184, 255));
+        carregarTextura(texturaInky, "img/ghost/inky/d1.png", sf::Color::Cyan);
+        carregarTextura(texturaClyde, "img/ghost/clyde/d1.png", sf::Color(255, 184, 82));
+
         inicializarFase(0);
-        criarParedes();
-        criarPilulas();
-        criarItem1();
-        criarItem2();
-        definirPosicoesIniciais();
         proximaDirecao = sf::Vector2f(1.0f, 0.0f);
     }
 
@@ -822,6 +822,16 @@ public:
     void inicializarFase(int indiceFase) {
         if (indiceFase >= 0 && indiceFase < mapas.size()) {
             mapa = mapas[indiceFase];
+
+            // Remove os objetos da fase anterior antes de criar os da nova
+            paredes.clear();
+            pilulas.clear();
+            pilulasFortalecedoras.clear();
+            item.clear();
+            apple.clear();
+            orange.clear();
+            beer.clear();
+
             definirPosicoesIniciais();
             criarParedes();
             criarPilulas();
@@ -867,8 +877,7 @@ public:
     }
 
     void definirPosicoesIniciais() {
-        // Limpa as posições anteriores
-        fantasmas.clear();
+        std::vector<Posicao> casaDosFantasmas;
 
         // Percorre o mapa para encontrar as posições do Pac-Man e dos fantasmas
         for (int y = 0; y < mapa.size(); ++y) {
@@ -876,11 +885,13 @@ public:
                 if (mapa[y][x] == 5) { // Pac-Man
                     pacman.sprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
                 }
-                else if (mapa[y][x] == 4) { // Fantasmas
-                    criarFantasmas(x, y); // Função que cria fantasmas na posição
+                else if (mapa[y][x] == 4) { // Casa dos fantasmas
+                    casaDosFantasmas.push_back({ static_cast<float>(x), static_cast<float>(y) });
                 }
             }
         }
+
+        criarFantasmas(casaDosFantasmas);
     }
 
     void criarItem1() {
@@ -1109,25 +1120,32 @@ public:
             }
         }
 
-        // Verificar colisões entre Pac-Man e fantasmas 
+        // Verificar colisões entre Pac-Man e fantasmas
+        bool perdeuVida = false;
         for (auto& fantasma : fantasmas) {
             if (pacman.sprite.getGlobalBounds().intersects(fantasma->sprite.getGlobalBounds())) {
                 if (pacman.fortalecido) {
-                    // Pac-Man come o fantasma 
-                    fantasma->posicao = fantasma->scatterTarget; // Move para a posição de dispersão 
+                    // Pac-Man come o fantasma
+                    fantasma->posicao = fantasma->scatterTarget; // Move para a posição de dispersão
                     fantasma->sprite.setPosition(fantasma->scatterTarget.x * tamanhoBloco, fantasma->scatterTarget.y * tamanhoBloco);
-                    pontos += 200; // Adiciona pontos por comer o fantasma 
+                    pontos += 200; // Adiciona pontos por comer o fantasma
                 }
                 else {
-                    // Pac-Man perde uma vida 
-                    pacman.vidas--;
-                    if (pacman.vidas <= 0) {
-                        estadoJogo = GameOver;
-                    }
-                    else {
-                        definirPosicoesIniciais(); // Reinicializa as posições do jogo 
-                    }
+                    perdeuVida = true;
+                    break;
                 }
+            }
+        }
+
+        // Tratado fora do loop: definirPosicoesIniciais() recria o vetor de
+        // fantasmas, o que não pode acontecer enquanto ele está sendo percorrido
+        if (perdeuVida) {
+            pacman.vidas--;
+            if (pacman.vidas <= 0) {
+                estadoJogo = GameOver;
+            }
+            else {
+                definirPosicoesIniciais(); // Reinicializa as posições do jogo
             }
         }
     }
@@ -1173,26 +1191,26 @@ public:
         salvarRanking(); // Salva o ranking em um arquivo
     }
 
-    void criarFantasmas(int x, int y) {
+    // Cria os 4 fantasmas, um em cada célula da casa (valor 4 no mapa)
+    void criarFantasmas(const std::vector<Posicao>& casa) {
         fantasmas.clear();
 
-        // Carregar texturas
-        carregarTextura(texturaBlinky, "img/ghost/blinky/d1.png", sf::Color::Red);
-        carregarTextura(texturaPinky, "img/ghost/pinky/d1.png", sf::Color(255, 184, 255));
-        carregarTextura(texturaInky, "img/ghost/inky/d1.png", sf::Color::Cyan);
-        carregarTextura(texturaClyde, "img/ghost/clyde/d1.png", sf::Color(255, 184, 82));
+        if (casa.size() < 4) {
+            std::cerr << "Mapa invalido: a casa dos fantasmas precisa de 4 celulas (valor 4)." << std::endl;
+            return;
+        }
 
         // Criar fantasmas com tempos de saída diferentes
-        fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, Posicao{ (float)x, (float)y }, Posicao{ 9, 11 }, 2.0f));
+        fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, casa[0], Posicao{ 9, 11 }, 2.0f));
         fantasmas.back()->tempoAteSaida = 2.0f; // Sai após 2 segundos
 
-        fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, Posicao{ (float)x, (float)y }, Posicao{ 10, 12 }, 5.0f));
+        fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, casa[1], Posicao{ 10, 12 }, 5.0f));
         fantasmas.back()->tempoAteSaida = 4.0f; // Sai após 4 segundos
 
-        fantasmas.push_back(std::make_unique<Inky>(texturaInky, Posicao{ (float)x, (float)y }, Posicao{ 8, 12 }, 10.0f));
+        fantasmas.push_back(std::make_unique<Inky>(texturaInky, casa[2], Posicao{ 8, 12 }, 10.0f));
         fantasmas.back()->tempoAteSaida = 6.0f; // Sai após 6 segundos
 
-        fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, Posicao{ (float)x, (float)y }, Posicao{ 9, 12 }, 15.0f));
+        fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, casa[3], Posicao{ 9, 12 }, 15.0f));
         fantasmas.back()->tempoAteSaida = 8.0f; // Sai após 8 segundos
     }
 
