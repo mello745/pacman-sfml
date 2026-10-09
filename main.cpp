@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <sstream>
 #include <cctype>
+#include <optional>
 
 using namespace std;
 using namespace chrono;
@@ -241,8 +242,9 @@ void exibirRanking() {
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
+            if (event.type == sf::Event::Closed ||
+                (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)) {
+                window.close(); // Volta ao menu
             }
 
             // Controle de rolagem
@@ -1486,13 +1488,15 @@ public:
     }
 };
 
-void nivelDificuldade() {
+// Tela de escolha de dificuldade. Retorna vazio se o jogador fechar a janela ou apertar Esc
+std::optional<NivelDificuldade> escolherDificuldade() {
     sf::RenderWindow window(sf::VideoMode(600, 500), "DIFICULDADE");
+    window.setFramerateLimit(60);
     sf::Font font;
 
     if (!font.loadFromFile(caminhoFonte)) {
         std::cout << "Erro ao carregar a fonte!" << std::endl;
-        return;
+        return std::nullopt;
     }
 
     sf::Text titulo("DIFICULDADE", font, 40);
@@ -1516,35 +1520,20 @@ void nivelDificuldade() {
     opcao3.setFillColor(sf::Color::Red);
     desafio.setFillColor(sf::Color::Magenta);
 
-    NivelDificuldade dificuldadeEscolhida;
-
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-                return; // Fecha a janela sem selecionar dificuldade
+            if (event.type == sf::Event::Closed ||
+                (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)) {
+                return std::nullopt; // Volta ao menu sem escolher
             }
 
-            if (event.type == sf::Event::MouseButtonPressed) {
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    if (opcao1.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        dificuldadeEscolhida = Facil;
-                        window.close(); // Fecha a janela após a escolha
-                    }
-                    else if (opcao2.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        dificuldadeEscolhida = Medio;
-                        window.close(); // Fecha a janela após a escolha
-                    }
-                    else if (opcao3.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        dificuldadeEscolhida = Dificil;
-                        window.close(); // Fecha a janela após a escolha
-                    }
-                    else if (desafio.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        dificuldadeEscolhida = Desafio;
-                        window.close();
-                    }
-                }
+            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+                sf::Vector2f clique(event.mouseButton.x, event.mouseButton.y);
+                if (opcao1.getGlobalBounds().contains(clique)) return Facil;
+                if (opcao2.getGlobalBounds().contains(clique)) return Medio;
+                if (opcao3.getGlobalBounds().contains(clique)) return Dificil;
+                if (desafio.getGlobalBounds().contains(clique)) return Desafio;
             }
         }
 
@@ -1557,21 +1546,22 @@ void nivelDificuldade() {
         window.draw(desafio);
         window.display();
     }
-    // Após escolher, inicia o jogo com a dificuldade selecionada
-    Jogo jogo;
-    jogo.dificuldade(dificuldadeEscolhida); // Aplica a dificuldade escolhida
-    jogo.executar(); // Inicia o jogo
+    return std::nullopt;
 }
 
-void menu()
+enum class OpcaoMenu { Jogar, IA, Ranking, Sair };
+
+// Tela inicial. Só mostra as opções e retorna a escolhida; quem age é o main()
+OpcaoMenu menu()
 {
     sf::RenderWindow window(sf::VideoMode(850, 600), "MENU");
+    window.setFramerateLimit(60);
     sf::Font font;
 
     if (!font.loadFromFile(caminhoFonte))
     {
         std::cerr << "Erro ao carregar a fonte!" << std::endl;
-        return;
+        return OpcaoMenu::Sair;
     }
 
     sf::Text titulo("WELCOME", font, 20);
@@ -1601,57 +1591,59 @@ void menu()
         sf::Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed) window.close();
-            if (event.type == sf::Event::MouseButtonPressed)
+            if (event.type == sf::Event::Closed) return OpcaoMenu::Sair;
+
+            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
             {
-                if (event.mouseButton.button == sf::Mouse::Left)
-                {
-                    if (jogar.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        window.close(); // Fecha o menu
-                        nivelDificuldade(); // Chama a tela de seleção de dificuldade
-                    }
-                    if (ia.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
-                        window.close();
-                        Jogo jogo;
-                        jogo.modoAtual = IA; // Define o modo como IA
-                        jogo.dificuldade(Facil);
-                        jogo.executar(); // Inicia o loop principal do jogo com IA
-
-                        if (ranking.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y))
-                        {
-                            window.close();
-                            exibirRanking();
-                            system("pause");
-                            return menu();
-                        }
-                        if (sair.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y))
-                        {
-                            window.close();
-                        }
-                    }
-                }
+                sf::Vector2f clique(event.mouseButton.x, event.mouseButton.y);
+                if (jogar.getGlobalBounds().contains(clique)) return OpcaoMenu::Jogar;
+                if (ia.getGlobalBounds().contains(clique)) return OpcaoMenu::IA;
+                if (ranking.getGlobalBounds().contains(clique)) return OpcaoMenu::Ranking;
+                if (sair.getGlobalBounds().contains(clique)) return OpcaoMenu::Sair;
             }
-
-            window.clear();
-            window.draw(titulo);
-            window.draw(titulo2);
-            window.draw(jogar);
-            window.draw(ia);
-            window.draw(ranking);
-            window.draw(sair);
-            window.display();
         }
+
+        // Desenha a cada frame, e não só quando chega um evento
+        window.clear();
+        window.draw(titulo);
+        window.draw(titulo2);
+        window.draw(jogar);
+        window.draw(ia);
+        window.draw(ranking);
+        window.draw(sair);
+        window.display();
     }
+    return OpcaoMenu::Sair;
 }
 
-// Função principal para inicializar e executar o jogo
+// Função principal: volta ao menu depois de cada partida ou tela, até o jogador escolher Sair
 int main()
 {
-    menu();
-    Jogo jogo;
-    exibirRanking();
-
-    return 0;
+    while (true) {
+        switch (menu()) {
+        case OpcaoMenu::Jogar: {
+            std::optional<NivelDificuldade> dificuldade = escolherDificuldade();
+            if (dificuldade) {
+                Jogo jogo;
+                jogo.dificuldade(*dificuldade);
+                jogo.executar();
+            }
+            break;
+        }
+        case OpcaoMenu::IA: {
+            Jogo jogo;
+            jogo.modoAtual = IA; // Pac-Man controlado pelo computador
+            jogo.dificuldade(Facil);
+            jogo.executar();
+            break;
+        }
+        case OpcaoMenu::Ranking:
+            exibirRanking();
+            break;
+        case OpcaoMenu::Sair:
+            return 0;
+        }
+    }
 }
 //Corrigir a movimentaçao do fantasma 
 //Criar novos mapas 
