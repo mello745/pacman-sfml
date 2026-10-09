@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.h"
 #include "Fantasma.h"
 #include "Mapas.h"
 #include "Pacman.h"
@@ -33,6 +34,7 @@ public:
     int pontos = 0;
 
     int maxVidas = 5; // Limite superior de vidas permitido
+    float velocidadeFantasmaAtual = velocidadeFantasma; // Blocos por segundo; muda com a dificuldade
     Mapa mapa;
     std::vector<sf::Sprite> paredes;
     std::vector<sf::Sprite> pilulas;

@@ -9,7 +9,7 @@
 #include <string>
 
 Pacman::Pacman(float x, float y)
-    : vidas(vidasIniciais), velocidade(90.0f), fortalecido(false),
+    : vidas(vidasIniciais), velocidade(velocidadePacman), fortalecido(false),
     temporizadorFortalecimento(0.0f), frameAtual(0), tempoEntreFrames(0.1f), temporizadorFrame(0.0f) {
 
     // Carregar texturas (3 frames: 0.png, 1.png, 2.png)
@@ -133,7 +133,7 @@ void Pacman::moverAutomaticamente(const Mapa& mapa,
     }
 
     // Mover Pac-Man na direção atual
-    sf::Vector2f movimento = direcaoAtual * (velocidade * deltaTempo);
+    sf::Vector2f movimento = direcaoAtual * (velocidadeAtual() * deltaTempo);
     sf::FloatRect novaPosicaoPacman = sprite.getGlobalBounds();
     novaPosicaoPacman.left += movimento.x;
     novaPosicaoPacman.top += movimento.y;
@@ -180,6 +180,26 @@ void Pacman::ativarFortalecimento() {
     fortalecido = true;
     temporizadorFortalecimento = tempoFantasmaVulneravel;
     sprite.setColor(sf::Color::Green); // Indica fortalecimento visualmente
+}
+
+float Pacman::velocidadeAtual() const {
+    return velocidade * multiplicadorTurbo;
+}
+
+void Pacman::ativarTurbo(float multiplicador, float duracao) {
+    if (tempoTurbo <= 0.0f || multiplicador > multiplicadorTurbo) {
+        multiplicadorTurbo = multiplicador;
+    }
+    tempoTurbo = duracao;
+}
+
+void Pacman::atualizarTurbo(float deltaTempo) {
+    if (tempoTurbo > 0.0f) {
+        tempoTurbo -= deltaTempo;
+        if (tempoTurbo <= 0.0f) {
+            multiplicadorTurbo = 1.0f; // Acabou o efeito
+        }
+    }
 }
 
 void Pacman::desenhar(sf::RenderWindow& janela) {

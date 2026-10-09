@@ -36,8 +36,9 @@ Jogo::Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pa
     proximaDirecao = sf::Vector2f(1.0f, 0.0f);
 }
 
+// A fase termina quando todas as pílulas foram comidas, inclusive as fortalecedoras
 bool Jogo::todasAsFrutasColetadas() {
-    return pilulas.empty(); // Verifica se não há mais frutas
+    return pilulas.empty() && pilulasFortalecedoras.empty();
 }
 
 void Jogo::inicializarFase(int indiceFase) {
@@ -186,13 +187,14 @@ void Jogo::atualizar(float deltaTempo) {
     // Atualizações gerais
     pacman.atualizarAnimacao(deltaTempo);
     pacman.atualizarFortalecimento(deltaTempo);
+    pacman.atualizarTurbo(deltaTempo);
 
     if (modoAtual == IA) {
         pacman.moverAutomaticamente(mapa, pilulas, spritesFantasmas, deltaTempo); // Chama o movimento automático
     }
     else if (modoAtual == Manual) {
         // Controle manual
-        sf::Vector2f movimentoTentativo = proximaDirecao * pacman.velocidade * deltaTempo;
+        sf::Vector2f movimentoTentativo = proximaDirecao * pacman.velocidadeAtual() * deltaTempo;
         sf::FloatRect novaPosicaoTentativa = pacman.sprite.getGlobalBounds();
         novaPosicaoTentativa.left += movimentoTentativo.x;
         novaPosicaoTentativa.top += movimentoTentativo.y;
@@ -202,7 +204,7 @@ void Jogo::atualizar(float deltaTempo) {
         }
 
         // Tentar mover na direção atual
-        sf::Vector2f movimentoPacman = pacman.direcaoAtual * pacman.velocidade * deltaTempo;
+        sf::Vector2f movimentoPacman = pacman.direcaoAtual * pacman.velocidadeAtual() * deltaTempo;
         sf::FloatRect novaPosicaoPacman = pacman.sprite.getGlobalBounds();
         novaPosicaoPacman.left += movimentoPacman.x;
         novaPosicaoPacman.top += movimentoPacman.y;
@@ -232,7 +234,7 @@ void Jogo::atualizar(float deltaTempo) {
             inky->blinkyPos = fantasmas[0]->posicao;
         }
 
-        fantasma->update(pacmanPos, direcaoPacman, pacman.fortalecido, velocidadeFantasma, deltaTempo, mapa);
+        fantasma->update(pacmanPos, direcaoPacman, pacman.fortalecido, velocidadeFantasmaAtual, deltaTempo, mapa);
     }
 
     // Verificar colisões entre Pac-Man e pilulas
@@ -246,10 +248,10 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
-    //Verificar colisoes entre o pacman e as cherrys
+    // Cereja: +100 pontos
     for (auto it = item.begin(); it != item.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
-            pontos += pontos * 2; // Duplica a quantidade de pontos
+            pontos += 100;
             it = item.erase(it); // Remove o item da lista e avança o iterador 
         }
         else {
@@ -257,6 +259,7 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
+    // Maçã: +1 vida (até o máximo da dificuldade)
     for (auto it = apple.begin(); it != apple.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pacman.vidas++; // Incrementa uma vida
@@ -270,10 +273,10 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
-    //Verificar colisoes entre o pacman e as cherrys
+    // Energético: velocidade x2,5 por alguns segundos
     for (auto it = orange.begin(); it != orange.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
-            pacman.velocidade += pacman.velocidade * 1.5f; // Duplica a quantidade de pontos
+            pacman.ativarTurbo(2.5f, duracaoTurbo);
             it = orange.erase(it); // Remove o item da lista e avança o iterador 
         }
         else {
@@ -281,11 +284,11 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
-    //Verificar colisoes entre o pacman e as cherrys
+    // Cerveja: perde metade dos pontos, mas fica 2x mais rápido por alguns segundos
     for (auto it = beer.begin(); it != beer.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
-            pontos = pontos / 2; // Duplica a quantidade de pontos
-            pacman.velocidade = pacman.velocidade * 2;
+            pontos = pontos / 2;
+            pacman.ativarTurbo(2.0f, duracaoTurbo);
             it = beer.erase(it); // Remove o item da lista e avança o iterador 
         }
         else {
@@ -530,53 +533,52 @@ void Jogo::desenhar(sf::Clock& relogioJogo) {
 
     // Desenha a pontuação, vidas e tempo de jogo
     sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
-    textoPontuacao.setPosition(8, 370);
+    textoPontuacao.setPosition(8, alturaMapa + 4 + 0);
     janela.draw(textoPontuacao);
 
     sf::Text textoVidas("Vidas: " + std::to_string(pacman.vidas), fonte, 20);
-    textoVidas.setPosition(8, 390);
+    textoVidas.setPosition(8, alturaMapa + 4 + 20);
     janela.draw(textoVidas);
 
     float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
     sf::Text textoTempo("Tempo: " + std::to_string(static_cast<int>(tempoDecorrido)) + "s", fonte, 20);
-    textoTempo.setPosition(8, 410);
+    textoTempo.setPosition(8, alturaMapa + 4 + 40);
     janela.draw(textoTempo);
 
     sf::Text textoMovimentos("Movimentos: " + std::to_string(movimentos), fonte, 20);
-    textoMovimentos.setPosition(8, 430);
+    textoMovimentos.setPosition(8, alturaMapa + 4 + 60);
     janela.draw(textoMovimentos);
 
     janela.display();
 }
 
+// O Pac-Man anda sempre na mesma velocidade; o que muda é a velocidade dos fantasmas e as vidas.
+// Médio, Difícil e Desafio começam com um bônus de pontos.
 void Jogo::dificuldade(NivelDificuldade dificuldade) {
-    dificuldadeAtual = dificuldade; // Define o estado atual da dificuldade
+    dificuldadeAtual = dificuldade;
+    pacman.velocidade = velocidadePacman;
+
     switch (dificuldade) {
     case Facil:
-        pacman.velocidade = 45.0f;
-        pacman.vidas = 100;
-        maxVidas = 100;
+        velocidadeFantasmaAtual = 2.0f;
+        pacman.vidas = 5;
         break;
     case Medio:
-        pacman.velocidade = 35.0f;
-        pacman.vidas = 2;
-        maxVidas = 3;
-        pontos += pontos + 15;
+        velocidadeFantasmaAtual = 2.4f;
+        pacman.vidas = 3;
+        pontos = 15;
         break;
     case Dificil:
-        pacman.velocidade = 50.0f;
-        pacman.vidas = 1;
-        maxVidas = 1;
-        pontos += pontos + 30;
+        velocidadeFantasmaAtual = 2.8f;
+        pacman.vidas = 2;
+        pontos = 30;
         break;
-    case Desafio:
-        pacman.velocidade = 50.0f;
+    case Desafio: // Como o Difícil, mas com 1 vida e a tela escura
+        velocidadeFantasmaAtual = 2.8f;
         pacman.vidas = 1;
-        maxVidas = 1;
-        pontos += pontos + 50;
-        break;
-    default:
-        std::cout << "Nível de dificuldade inválido!" << std::endl;
+        pontos = 50;
         break;
     }
+
+    maxVidas = pacman.vidas; // A maçã recupera vidas só até o valor inicial
 }
