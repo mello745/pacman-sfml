@@ -15,6 +15,9 @@
 #include <memory>
 #include <cmath>
 #include <limits>
+#include <iomanip>
+#include <sstream>
+#include <cctype>
 
 using namespace std;
 using namespace chrono;
@@ -167,30 +170,33 @@ struct jogador {
 
 std::vector<jogador> ranking;
 
-template <typename T>
-void ordenarRanking(vector<T>& lista, bool(*compare)(T, T)) {
-    sort(lista.begin(), lista.end(), compare);
+const std::string arquivoRanking = "ranking.txt";
+
+// Acrescenta UMA partida ao final do arquivo (cada linha: nome pontos tempo)
+void salvarNoRanking(const jogador& partida) {
+    std::ofstream file(arquivoRanking, std::ios::app);
+    if (!file.is_open()) {
+        std::cerr << "Erro ao salvar o ranking!" << std::endl;
+        return;
+    }
+    file << partida.nome << " " << partida.pontos << " " << partida.tempo << std::endl;
 }
 
-void salvarRanking() {
-    ofstream file("ranking.txt", ios::app); // Sobrescreve o arquivo
-    if (file.is_open()) {
-        for (const auto& Jogo : ranking) {
-            file << Jogo.nome << " " << Jogo.pontos << " " << Jogo.tempo << endl;
-        }
-        file.close();
-    }
-    else {
-        std::cerr << "Erro ao salvar o ranking!" << std::endl;
-    }
+// Lê o nome no console. Espaços viram "_" porque o arquivo separa os campos por espaço
+std::string lerNomeJogador() {
+    std::cout << "Digite o nome do jogador: ";
+    std::string nome;
+    std::getline(std::cin >> std::ws, nome);
+    nome.erase(nome.find_last_not_of(" \t\r") + 1);
+    std::replace_if(nome.begin(), nome.end(), [](unsigned char c) { return std::isspace(c); }, '_');
+    return nome.empty() ? "Jogador" : nome;
 }
 
 void carregarRanking() {
     ranking.clear();
-    std::ifstream file("ranking.txt");
+    std::ifstream file(arquivoRanking);
     if (!file.is_open()) {
-        std::cerr << "Erro ao abrir ranking.txt. Certifique-se de que o arquivo existe!" << std::endl;
-        return;
+        return; // Ainda não há partidas salvas
     }
 
     std::string nome;
@@ -247,7 +253,7 @@ void exibirRanking() {
                     }
                 }
                 else if (event.key.code == sf::Keyboard::Down) {
-                    if (primeiraLinhaVisivel < ranking.size() - linhasVisiveis) {
+                    if (primeiraLinhaVisivel + linhasVisiveis < static_cast<int>(ranking.size())) {
                         primeiraLinhaVisivel++; // Rolando para baixo
                     }
                 }
@@ -258,22 +264,23 @@ void exibirRanking() {
         window.clear(); // Limpa a janela a cada iteração
         window.draw(titulo);
 
+        if (ranking.empty()) {
+            text.setString("Nenhuma partida registrada ainda");
+            text.setPosition((window.getSize().x - text.getLocalBounds().width) / 2, 150);
+            window.draw(text);
+        }
+
         for (int i = 0; i < linhasVisiveis; i++) {
             int index = primeiraLinhaVisivel + i;
             if (index < ranking.size()) { // Verifica se o índice está dentro dos limites
-                // Formatar tempo como data legível
-                char buffer[26];
-                if (ctime_s(buffer, sizeof(buffer), &ranking[index].tempo) != 0) {
-                    std::cerr << "Erro ao formatar tempo para o jogador: " << ranking[index].nome << std::endl;
-                    continue;
-                }
-                string tempoStr(buffer);
-                tempoStr.erase(remove(tempoStr.begin(), tempoStr.end(), '\n'), tempoStr.end());
+                // Formatar tempo como data legível (dd/mm/aaaa hh:mm)
+                std::ostringstream data;
+                data << std::put_time(std::localtime(&ranking[index].tempo), "%d/%m/%Y %H:%M");
 
                 string info = "Pos: " + to_string(index + 1) + " | " +
                     "Jogador: " + ranking[index].nome + " | " +
                     "Pontos: " + to_string(ranking[index].pontos) + " | " +
-                    "Data: " + tempoStr;
+                    "Data: " + data.str();
 
                 text.setString(info);
                 text.setPosition((window.getSize().x - text.getLocalBounds().width) / 2, 150 + i * 30);
@@ -1181,14 +1188,14 @@ public:
         }
     }
 
+    // Registra a partida no ranking com a mesma pontuação mostrada no HUD
     void finalizarJogo(const std::string& nomeJogador) {
-        jogador novoJogador;
-        novoJogador.nome = nomeJogador;
-        novoJogador.pontos = pontos;
-        novoJogador.tempo = time(nullptr); // Salva o tempo atual
+        jogador partida;
+        partida.nome = nomeJogador;
+        partida.pontos = std::max(0, calcularPontuacao());
+        partida.tempo = time(nullptr); // Salva o tempo atual
 
-        ranking.push_back(novoJogador); // Adiciona o novo jogador ao ranking
-        salvarRanking(); // Salva o ranking em um arquivo
+        salvarNoRanking(partida);
     }
 
     // Cria os 4 fantasmas, um em cada célula da casa (valor 4 no mapa)
@@ -1216,7 +1223,6 @@ public:
 
     void executar() {
         sf::Clock relogio;
-        std::string nomeJogador; // Variável para armazenar o nome do jogador
 
         while (janela.isOpen() && estadoJogo == Jogando) {
             sf::Time dt = relogio.restart();
@@ -1228,23 +1234,8 @@ public:
 
         // Quando o jogo termina, salva o ranking
         if (estadoJogo == Vitoria || estadoJogo == GameOver) {
-            // Pedir o nome do jogador
-            std::cout << "Digite o nome do jogador: ";
-            std::cin >> nomeJogador;
-
-            // Verifica se o jogador já está no ranking
-            if (!jogadorJaNoRanking(nomeJogador)) {
-                // Salvar a pontuação no ranking
-                jogador novoJogador;
-                novoJogador.nome = nomeJogador;
-                novoJogador.pontos = pontos;
-                novoJogador.tempo = time(nullptr); // Tempo atual
-                ranking.push_back(novoJogador);
-                salvarRanking(); // Chama a função para salvar o ranking
-            }
-            else {
-                std::cout << "Jogador já está no ranking!" << std::endl; // Mensagem informativa
-            }
+            // Toda partida entra no ranking, mesmo de um jogador que já jogou antes
+            finalizarJogo(lerNomeJogador());
 
             // Exibir mensagem de vitória ou derrota
             if (estadoJogo == Vitoria) {
@@ -1282,15 +1273,6 @@ public:
             }
         }
         return false;
-    }
-
-    bool jogadorJaNoRanking(const std::string& nome) {
-        for (const auto& j : ranking) {
-            if (j.nome == nome) {
-                return true; // O jogador já está no ranking
-            }
-        }
-        return false; // O jogador não está no ranking
     }
 
     void exibirMensagemTransicao(const std::string& mensagem) {
@@ -1667,7 +1649,6 @@ int main()
 {
     menu();
     Jogo jogo;
-    salvarRanking();
     exibirRanking();
 
     return 0;
