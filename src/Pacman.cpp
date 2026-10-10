@@ -11,13 +11,18 @@
 
 Pacman::Pacman(float x, float y)
     : vidas(vidasIniciais), velocidade(velocidadePacman), fortalecido(false),
-    temporizadorFortalecimento(0.0f), frameAtual(0), tempoEntreFrames(0.1f), temporizadorFrame(0.0f) {
+    temporizadorFortalecimento(0.0f), frameAtual(0), tempoEntreFrames(tempoQuadroPacman), temporizadorFrame(0.0f) {
 
     // Carregar texturas (3 frames: 0.png, 1.png, 2.png)
     for (int i = 0; i < 3; ++i) {
         sf::Texture texture;
         carregarTextura(texture, "img/pacman/" + std::to_string(i) + ".png", sf::Color::Yellow);
         texturas.push_back(texture);
+    }
+    for (int i = 0; i <= 10; ++i) {
+        sf::Texture texture;
+        carregarTextura(texture, "img/pacman/dead/" + std::to_string(i) + ".png", sf::Color::Yellow);
+        texturasMorte.push_back(texture);
     }
 
     sprite.setTexture(texturas[0]);
@@ -27,10 +32,14 @@ Pacman::Pacman(float x, float y)
 }
 
 void Pacman::atualizarAnimacao(float deltaTempo) {
+    static const int sequencia[4] = { 0, 1, 2, 1 };
+    if (!movendo) return; // Parado: a boca fica como está
+
     temporizadorFrame += deltaTempo;
     if (temporizadorFrame >= tempoEntreFrames) {
         temporizadorFrame = 0.0f;
-        frameAtual = (frameAtual + 1) % texturas.size(); // Alterna entre todos os frames
+        passoAnimacao = (passoAnimacao + 1) % 4;
+        frameAtual = sequencia[passoAnimacao];
         sprite.setTexture(texturas[frameAtual]);
     }
 }
@@ -137,15 +146,14 @@ void Pacman::atualizarFortalecimento(float deltaTempo) {
         temporizadorFortalecimento -= deltaTempo;
         if (temporizadorFortalecimento <= 0) {
             fortalecido = false;
-            sprite.setColor(sf::Color::White); // Volta à cor normal
         }
     }
 }
 
+// O fortalecimento aparece nos fantasmas (azuis) e no HUD ("PODER"); o Pac-Man continua amarelo
 void Pacman::ativarFortalecimento() {
     fortalecido = true;
     temporizadorFortalecimento = tempoFantasmaVulneravel;
-    sprite.setColor(sf::Color::Green); // Indica fortalecimento visualmente
 }
 
 float Pacman::velocidadeAtual() const {
@@ -168,6 +176,25 @@ void Pacman::atualizarTurbo(float deltaTempo) {
     }
 }
 
-void Pacman::desenhar(sf::RenderWindow& janela) {
-    janela.draw(sprite);
+void Pacman::desenhar(sf::RenderTarget& alvo) {
+    // Os sprites olham para a direita; gira conforme a direção (mantém a última se parado)
+    if (direcaoAtual.x > 0) rotacao = 0.0f;
+    else if (direcaoAtual.y > 0) rotacao = 90.0f;
+    else if (direcaoAtual.x < 0) rotacao = 180.0f;
+    else if (direcaoAtual.y < 0) rotacao = 270.0f;
+
+    sf::Sprite imagem(sprite);
+    sf::Vector2f tamanho(sprite.getLocalBounds().width, sprite.getLocalBounds().height);
+    imagem.setOrigin(tamanho / 2.0f);
+    imagem.setPosition(sprite.getPosition() + sf::Vector2f(tamanhoBloco / 2.0f, tamanhoBloco / 2.0f));
+    imagem.setRotation(rotacao);
+    alvo.draw(imagem);
+}
+
+void Pacman::desenharMorte(sf::RenderTarget& alvo, float progresso) {
+    int quadro = std::clamp(static_cast<int>(progresso * texturasMorte.size()), 0, static_cast<int>(texturasMorte.size()) - 1);
+    sf::Sprite imagem(texturasMorte[quadro]);
+    imagem.setOrigin(imagem.getLocalBounds().width / 2.0f, imagem.getLocalBounds().height / 2.0f);
+    imagem.setPosition(sprite.getPosition() + sf::Vector2f(tamanhoBloco / 2.0f, tamanhoBloco / 2.0f));
+    alvo.draw(imagem);
 }

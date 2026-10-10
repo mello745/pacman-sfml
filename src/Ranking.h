@@ -13,9 +13,6 @@ struct jogador {
 // Acrescenta UMA partida ao final do arquivo (cada linha: nome pontos tempo)
 void salvarNoRanking(const jogador& partida);
 
-// Lê o nome no console. Espaços viram "_" porque o arquivo separa os campos por espaço
-std::string lerNomeJogador();
-
 // Lê todas as partidas salvas no arquivo
 std::vector<jogador> carregarRanking();
 

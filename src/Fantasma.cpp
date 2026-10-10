@@ -1,16 +1,55 @@
 #include "Fantasma.h"
 
 #include "Config.h"
+#include "Recursos.h"
 
 #include <algorithm>
 #include <cmath>
 #include <queue>
 #include <random>
 
-Fantasma::Fantasma(sf::Texture& texture, Posicao startPos, Posicao scatterPos, const std::string& ghostName)
+namespace {
+
+// Índice das texturas por direção: 0 cima, 1 baixo, 2 esquerda, 3 direita (parado usa "baixo")
+int indiceDirecao(Direcao d) {
+    switch (d) {
+    case cima: return 0;
+    case esquerda: return 2;
+    case direita: return 3;
+    default: return 1;
+    }
+}
+
+} // namespace
+
+void carregarTexturasFantasma(TexturasFantasma& texturas, const std::string& pasta, sf::Color corReserva) {
+    const char letras[4] = { 'u', 'd', 'l', 'r' };
+    for (int d = 0; d < 4; ++d) {
+        for (int q = 0; q < 2; ++q) {
+            carregarTextura(texturas.andando[d][q],
+                "img/ghost/" + pasta + "/" + letras[d] + std::to_string(q + 1) + ".png", corReserva);
+        }
+    }
+}
+
+void carregarTexturasEspeciais(TexturasEspeciais& texturas) {
+    // nerf1x são os azuis; nerf0x, os brancos
+    carregarTextura(texturas.assustado[0], "img/ghost/nerf/nerf11.png", sf::Color::Blue);
+    carregarTextura(texturas.assustado[1], "img/ghost/nerf/nerf12.png", sf::Color::Blue);
+    carregarTextura(texturas.piscando[0], "img/ghost/nerf/nerf01.png", sf::Color::White);
+    carregarTextura(texturas.piscando[1], "img/ghost/nerf/nerf02.png", sf::Color::White);
+    const char letras[4] = { 'u', 'd', 'l', 'r' };
+    for (int d = 0; d < 4; ++d) {
+        carregarTextura(texturas.olhos[d], std::string("img/ghost/dead/") + letras[d] + ".png", sf::Color::White);
+    }
+}
+
+Fantasma::Fantasma(const TexturasFantasma& texturas, const TexturasEspeciais& especiais,
+    Posicao startPos, Posicao scatterPos, const std::string& ghostName)
     : posicao(startPos), scatterTarget(scatterPos), name(ghostName),
-    proximoBloco(static_cast<int>(startPos.x), static_cast<int>(startPos.y)) {
-    sprite.setTexture(texture);
+    proximoBloco(static_cast<int>(startPos.x), static_cast<int>(startPos.y)),
+    texturas(&texturas), especiais(&especiais) {
+    sprite.setTexture(texturas.andando[indiceDirecao(parado)][0]);
     sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
 }
 
@@ -22,12 +61,36 @@ void Fantasma::atualizarModo(float deltaTime) {
     }
 }
 
+void Fantasma::animar(float deltaTime) {
+    tempoAnimacao += deltaTime;
+    if (tempoAnimacao >= tempoQuadroFantasma) {
+        tempoAnimacao -= tempoQuadroFantasma;
+        quadro = 1 - quadro;
+    }
+}
+
 void Fantasma::update(const Posicao& pacmanPos, Direcao pacmanDir, bool assustado, float speed, float deltaTime, const Mapa& mapa) {
     atualizarModo(deltaTime);
 
-    float restante = speed * deltaTime;
+    float restante = (comido ? velocidadeOlhos : speed) * deltaTime;
     while (restante > 0.0f) {
         if (posicao.x == proximoBloco.x && posicao.y == proximoBloco.y) {
+            if (comido) {
+                // Olhos: ao chegar na casa, volta a ser fantasma e espera para sair de novo
+                if (posicao.x == scatterTarget.x && posicao.y == scatterTarget.y) {
+                    comido = false;
+                    saiuDaBase = false;
+                    tempoAteSaida = esperaAposComido;
+                    direcao = parado;
+                    break;
+                }
+                direcao = direcaoParaAlvo(mapa, scatterTarget);
+                if (direcao == parado) break;
+                sf::Vector2f passo = converterDirecao(direcao);
+                proximoBloco += sf::Vector2i(static_cast<int>(passo.x), static_cast<int>(passo.y));
+                continue;
+            }
+
             bool perseguir = (estadoAtual == Seguir) && !assustado;
             Posicao alvo = perseguir ? calcularAlvo(pacmanPos, pacmanDir) : posicao;
             escolherNovaDirecao(mapa, alvo, perseguir);
@@ -54,12 +117,7 @@ void Fantasma::update(const Posicao& pacmanPos, Direcao pacmanDir, bool assustad
 }
 
 void Fantasma::voltarParaCasa() {
-    posicao = scatterTarget;
-    proximoBloco = sf::Vector2i(static_cast<int>(scatterTarget.x), static_cast<int>(scatterTarget.y));
-    direcao = parado;
-    saiuDaBase = false;
-    tempoAteSaida = 5.0f;
-    sprite.setPosition(posicao.x * tamanhoBloco, posicao.y * tamanhoBloco);
+    comido = true; // Continua andando, agora como olhos, até a casa (ver update)
 }
 
 bool Fantasma::verificarColisaoParede(const Posicao& posicao, const Mapa& mapa) {
@@ -147,8 +205,21 @@ void Fantasma::escolherNovaDirecao(const Mapa& mapa, const Posicao& alvo, bool p
     direcao = possiveis[sorteio(gerador)];
 }
 
-void Fantasma::desenhar(sf::RenderWindow& janela) {
-    janela.draw(sprite);
+void Fantasma::desenhar(sf::RenderTarget& alvo, bool assustado, float tempoRestante) {
+    const sf::Texture* textura;
+    if (comido) {
+        textura = &especiais->olhos[indiceDirecao(direcao)];
+    }
+    else if (assustado) {
+        // Nos últimos segundos, alterna entre azul e branco 5 vezes por segundo
+        bool branco = tempoRestante < avisoFimFortalecimento && static_cast<int>(tempoRestante * 5) % 2 == 0;
+        textura = branco ? &especiais->piscando[quadro] : &especiais->assustado[quadro];
+    }
+    else {
+        textura = &texturas->andando[indiceDirecao(direcao)][quadro];
+    }
+    sprite.setTexture(*textura);
+    alvo.draw(sprite);
 }
 
 Posicao Blinky::calcularAlvo(const Posicao& pacmanPos, Direcao) {

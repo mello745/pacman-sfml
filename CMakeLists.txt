@@ -30,18 +30,29 @@ add_executable(pacman
     src/main.cpp
     src/Fantasma.cpp
     src/Jogo.cpp
+    src/Labirinto.cpp
     src/Mapas.cpp
     src/Pacman.cpp
     src/Ranking.cpp
     src/Recursos.cpp
+    src/Sons.cpp
     src/Telas.cpp
     src/Tipos.cpp
 )
-target_link_libraries(pacman PRIVATE sfml-graphics)
+target_link_libraries(pacman PRIVATE sfml-graphics sfml-audio)
 
 # MinGW: embute libstdc++/libgcc para o .exe rodar fora do terminal do MSYS2
 if(MINGW)
     target_link_options(pacman PRIVATE -static)
+endif()
+
+# Windows: o áudio do SFML usa o OpenAL, que vem como DLL junto com o SFML
+if(WIN32)
+    add_custom_command(TARGET pacman POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${sfml_SOURCE_DIR}/extlibs/bin/$<IF:$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>,x64,x86>/openal32.dll
+                $<TARGET_FILE_DIR:pacman>
+        VERBATIM)
 endif()
 
 # Copia a pasta assets/ para o lado do executável

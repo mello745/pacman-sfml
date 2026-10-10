@@ -5,6 +5,7 @@
 #include "Recursos.h"
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 
 Jogo::Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pacman(0, 0), estadoJogo(Jogando) {
@@ -15,22 +16,23 @@ Jogo::Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pa
     }
     texturaEscura.create(larguraJanela, alturaJanela);
 
-    // Parede: bloco azul sólido gerado em código, no tamanho exato de um bloco
+    // Parede (só para a colisão): bloco do tamanho exato de um bloco do mapa
     sf::Image imagemParede;
-    imagemParede.create(tamanhoBloco, tamanhoBloco, sf::Color(33, 33, 222));
+    imagemParede.create(tamanhoBloco, tamanhoBloco, corParede);
     texturaParede.loadFromImage(imagemParede);
 
     carregarTextura(texturaPilula, "img/item/dot.png");
     carregarTextura(texturaItem, "img/item/cherry.png", sf::Color::Red);
-    carregarTextura(texturaApple, "img/item/apple.png", sf::Color::Green);
-    carregarTextura(texturaOrange, "img/item/redbull.png", sf::Color::Cyan);
-    carregarTextura(texturaBeer, "img/item/beer.png", sf::Color(255, 165, 0));
+    carregarTextura(texturaApple, "img/item/maca.png", sf::Color::Green);
+    carregarTextura(texturaOrange, "img/item/energetico.png", sf::Color::Cyan);
+    carregarTextura(texturaBeer, "img/item/cerveja.png", sf::Color(255, 165, 0));
     carregarTextura(texturaPilulaFortalecedora, "img/item/pellet.png");
 
-    carregarTextura(texturaBlinky, "img/ghost/blinky/d1.png", sf::Color::Red);
-    carregarTextura(texturaPinky, "img/ghost/pinky/d1.png", sf::Color(255, 184, 255));
-    carregarTextura(texturaInky, "img/ghost/inky/d1.png", sf::Color::Cyan);
-    carregarTextura(texturaClyde, "img/ghost/clyde/d1.png", sf::Color(255, 184, 82));
+    carregarTexturasFantasma(texturasBlinky, "blinky", sf::Color::Red);
+    carregarTexturasFantasma(texturasPinky, "pinky", sf::Color(255, 184, 255));
+    carregarTexturasFantasma(texturasInky, "inky", sf::Color::Cyan);
+    carregarTexturasFantasma(texturasClyde, "clyde", sf::Color(255, 184, 82));
+    carregarTexturasEspeciais(texturasEspeciais);
 
     inicializarFase(0);
     proximaDirecao = sf::Vector2f(1.0f, 0.0f);
@@ -59,6 +61,7 @@ void Jogo::inicializarFase(int indiceFase) {
         criarPilulas();
         criarItem1();
         criarItem2();
+        labirinto.montar(mapa);
     }
     else {
         std::cerr << "Fase inválida: " << indiceFase << std::endl;
@@ -79,19 +82,20 @@ void Jogo::criarParedes() {
 }
 
 void Jogo::criarPilulas() {
+    // As duas imagens têm 8x8 px; +5 px centraliza no bloco de 18 px
+    const float centralizar = (tamanhoBloco - 8) / 2.0f;
     for (int y = 0; y < mapa.size(); ++y) {
         for (int x = 0; x < mapa[y].size(); ++x) {
             if (mapa[y][x] == Pilula) {
                 sf::Sprite pilulaSprite;
                 pilulaSprite.setTexture(texturaPilula);
-                pilulaSprite.setPosition(x * tamanhoBloco + tamanhoBloco / 4, y * tamanhoBloco + tamanhoBloco / 4);
-                pilulaSprite.setScale(1.0f, 1.0f);
+                pilulaSprite.setPosition(x * tamanhoBloco + centralizar, y * tamanhoBloco + centralizar);
                 pilulas.push_back(pilulaSprite);
             }
             else if (mapa[y][x] == PilulaFortalecedora) {
                 sf::Sprite pilulaFortalecedoraSprite;
                 pilulaFortalecedoraSprite.setTexture(texturaPilulaFortalecedora);
-                pilulaFortalecedoraSprite.setPosition(x * tamanhoBloco, y * tamanhoBloco);
+                pilulaFortalecedoraSprite.setPosition(x * tamanhoBloco + centralizar, y * tamanhoBloco + centralizar);
                 pilulasFortalecedoras.push_back(pilulaFortalecedoraSprite);
             }
         }
@@ -171,23 +175,62 @@ Direcao Jogo::converterParaDirecao(const sf::Vector2f& vetor) {
 }
 
 void Jogo::atualizar(float deltaTempo) {
-    if (estadoJogo != Jogando) return;
-
-    if (todasAsFrutasColetadas()) {
-        exibirMensagemTransicao("Fase " + std::to_string(faseAtual + 1) + " Concluída!");
-        faseAtual++;
-        if (faseAtual < mapas.size()) {
-            inicializarFase(faseAtual);
-        }
-        else {
-            estadoJogo = Vitoria;
-        }
+    // Os fantasmas e a boca do Pac-Man animam em todas as etapas, menos no fim de jogo
+    if (etapa != Etapa::FimDeJogo) {
+        for (auto& fantasma : fantasmas) fantasma->animar(deltaTempo);
     }
 
+    switch (etapa) {
+    case Etapa::Pronto:
+        tempoEtapa -= deltaTempo;
+        if (tempoEtapa <= 0.0f) etapa = Etapa::Jogando;
+        break;
+
+    case Etapa::Jogando:
+        atualizarJogando(deltaTempo);
+        break;
+
+    case Etapa::Morrendo:
+        tempoEtapa -= deltaTempo;
+        if (tempoEtapa <= 0.0f) {
+            if (pacman.vidas <= 0) {
+                estadoJogo = GameOver;
+                etapa = Etapa::FimDeJogo;
+            }
+            else {
+                definirPosicoesIniciais(); // Reinicializa as posições do jogo
+                etapa = Etapa::Pronto;
+                tempoEtapa = duracaoPronto;
+            }
+        }
+        break;
+
+    case Etapa::FaseConcluida:
+        tempoEtapa -= deltaTempo;
+        if (tempoEtapa <= 0.0f) {
+            faseAtual++;
+            if (faseAtual < mapas.size()) {
+                inicializarFase(faseAtual);
+                etapa = Etapa::Pronto;
+                tempoEtapa = duracaoPronto;
+            }
+            else {
+                estadoJogo = Vitoria;
+                etapa = Etapa::FimDeJogo;
+            }
+        }
+        break;
+
+    case Etapa::FimDeJogo:
+        break; // Espera o nome (ver processarEventos)
+    }
+}
+
+void Jogo::atualizarJogando(float deltaTempo) {
     // Atualizações gerais
-    pacman.atualizarAnimacao(deltaTempo);
     pacman.atualizarFortalecimento(deltaTempo);
     pacman.atualizarTurbo(deltaTempo);
+    sf::Vector2f posicaoAntes = pacman.sprite.getPosition();
 
     if (modoAtual == IA) {
         // Converte pílulas e fantasmas (fora da casa) em blocos do mapa para a IA
@@ -200,7 +243,7 @@ void Jogo::atualizar(float deltaTempo) {
 
         std::vector<sf::Vector2i> blocosFantasmas;
         for (const auto& f : fantasmas) {
-            if (f->saiuDaBase) {
+            if (f->saiuDaBase && !f->comido) {
                 blocosFantasmas.emplace_back(static_cast<int>(std::round(f->posicao.x)), static_cast<int>(std::round(f->posicao.y)));
             }
         }
@@ -228,7 +271,11 @@ void Jogo::atualizar(float deltaTempo) {
             pacman.sprite.move(movimentoPacman);
         }
     }
-  
+
+    // A boca só abre e fecha enquanto o Pac-Man anda
+    pacman.movendo = (pacman.sprite.getPosition() != posicaoAntes);
+    pacman.atualizarAnimacao(deltaTempo);
+
     // Atualiza cada fantasma UMA vez por frame
     Direcao direcaoPacman = converterParaDirecao(pacman.direcaoAtual);
     sf::FloatRect corpoPacman = pacman.sprite.getGlobalBounds();
@@ -256,6 +303,7 @@ void Jogo::atualizar(float deltaTempo) {
     for (auto it = pilulas.begin(); it != pilulas.end(); ) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pontos += 10; // Adiciona pontos ao jogador
+            sons.tocarSeLivre(Som::Comer);
             it = pilulas.erase(it); // Remove a fruta do vetor
         }
         else {
@@ -267,7 +315,8 @@ void Jogo::atualizar(float deltaTempo) {
     for (auto it = item.begin(); it != item.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pontos += 100;
-            it = item.erase(it); // Remove o item da lista e avança o iterador 
+            sons.tocar(Som::Item);
+            it = item.erase(it); // Remove o item da lista e avança o iterador
         }
         else {
             ++it;
@@ -281,6 +330,7 @@ void Jogo::atualizar(float deltaTempo) {
             if (pacman.vidas > maxVidas) {
                 pacman.vidas = maxVidas; // Garante que o número de vidas não exceda o limite
             }
+            sons.tocar(Som::VidaExtra);
             it = apple.erase(it); // Remove o item da lista
         }
         else {
@@ -292,7 +342,8 @@ void Jogo::atualizar(float deltaTempo) {
     for (auto it = orange.begin(); it != orange.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pacman.ativarTurbo(2.5f, duracaoTurbo);
-            it = orange.erase(it); // Remove o item da lista e avança o iterador 
+            sons.tocar(Som::Item);
+            it = orange.erase(it); // Remove o item da lista e avança o iterador
         }
         else {
             ++it;
@@ -304,18 +355,20 @@ void Jogo::atualizar(float deltaTempo) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pontos = pontos / 2;
             pacman.ativarTurbo(2.0f, duracaoTurbo);
-            it = beer.erase(it); // Remove o item da lista e avança o iterador 
+            sons.tocar(Som::Item);
+            it = beer.erase(it); // Remove o item da lista e avança o iterador
         }
         else {
             ++it;
         }
     }
 
-    // Verificar colisões entre Pac-Man e pilulas fortalecedoras 
+    // Verificar colisões entre Pac-Man e pilulas fortalecedoras
     for (auto it = pilulasFortalecedoras.begin(); it != pilulasFortalecedoras.end();) {
         if (pacman.sprite.getGlobalBounds().intersects(it->getGlobalBounds())) {
             pacman.ativarFortalecimento();
             pontos += 50; // Adiciona pontos ao coletar uma pilula fortalecedora
+            sons.tocarSeLivre(Som::Comer);
             it = pilulasFortalecedoras.erase(it);
         }
         else {
@@ -323,14 +376,16 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
-    // Verificar colisões entre Pac-Man e fantasmas
+    // Verificar colisões entre Pac-Man e fantasmas (olhos voltando para a casa não contam)
     bool perdeuVida = false;
     for (auto& fantasma : fantasmas) {
+        if (fantasma->comido) continue;
         if (pacman.sprite.getGlobalBounds().intersects(fantasma->sprite.getGlobalBounds())) {
             if (pacman.fortalecido) {
                 // Pac-Man come o fantasma
-                fantasma->voltarParaCasa(); // Volta para a casa e espera 5 s
+                fantasma->voltarParaCasa(); // Vira olhos que voltam para a casa
                 pontos += 200; // Adiciona pontos por comer o fantasma
+                sons.tocar(Som::ComerFantasma);
             }
             else {
                 perdeuVida = true;
@@ -339,16 +394,21 @@ void Jogo::atualizar(float deltaTempo) {
         }
     }
 
-    // Tratado fora do loop: definirPosicoesIniciais() recria o vetor de
-    // fantasmas, o que não pode acontecer enquanto ele está sendo percorrido
+    // Tratado fora do loop: ao fim da animação de morte, definirPosicoesIniciais() recria o
+    // vetor de fantasmas, o que não pode acontecer enquanto ele está sendo percorrido
     if (perdeuVida) {
         pacman.vidas--;
-        if (pacman.vidas <= 0) {
-            estadoJogo = GameOver;
-        }
-        else {
-            definirPosicoesIniciais(); // Reinicializa as posições do jogo
-        }
+        sons.pararTodos();
+        sons.tocar(Som::Morte);
+        etapa = Etapa::Morrendo;
+        tempoEtapa = duracaoMorte;
+        return;
+    }
+
+    if (todasAsFrutasColetadas()) {
+        sons.pararTodos();
+        etapa = Etapa::FaseConcluida;
+        tempoEtapa = duracaoFaseConcluida;
     }
 }
 
@@ -357,6 +417,23 @@ void Jogo::processarEventos() {
     while (janela.pollEvent(evento)) {
         if (evento.type == sf::Event::Closed)
             janela.close();
+
+        // Fim de jogo: o teclado serve para digitar o nome
+        if (etapa == Etapa::FimDeJogo) {
+            if (evento.type == sf::Event::TextEntered) {
+                char32_t c = evento.text.unicode;
+                bool permitido = c < 128 && (std::isalnum(static_cast<int>(c)) || c == ' ' || c == '-' || c == '_');
+                if (permitido && nomeDigitado.size() < tamanhoMaximoNome) {
+                    nomeDigitado += static_cast<char>(c);
+                }
+            }
+            else if (evento.type == sf::Event::KeyPressed) {
+                if (evento.key.code == sf::Keyboard::BackSpace && !nomeDigitado.empty()) nomeDigitado.pop_back();
+                else if (evento.key.code == sf::Keyboard::Enter) nomeConfirmado = true;
+                else if (evento.key.code == sf::Keyboard::Escape) sairSemSalvar = true;
+            }
+            continue;
+        }
 
         if (evento.type == sf::Event::KeyPressed) {
             switch (evento.key.code) {
@@ -376,6 +453,10 @@ void Jogo::processarEventos() {
                 proximaDirecao = sf::Vector2f(1.f, 0.f); // Direção para a direita
                 movimentos++; // Contabiliza o movimento
                 break;
+            case sf::Keyboard::M:
+                Sons::alternarMudo();
+                if (Sons::mudo()) sons.pararTodos();
+                break;
             default:
                 break;
             }
@@ -384,8 +465,14 @@ void Jogo::processarEventos() {
 }
 
 void Jogo::finalizarJogo(const std::string& nomeJogador) {
+    // Espaços viram "_" porque o arquivo do ranking separa os campos por espaço
+    std::string nome = nomeJogador;
+    nome.erase(0, nome.find_first_not_of(' '));
+    nome.erase(nome.find_last_not_of(' ') + 1);
+    std::replace(nome.begin(), nome.end(), ' ', '_');
+
     jogador partida;
-    partida.nome = nomeJogador;
+    partida.nome = nome.empty() ? "Jogador" : nome;
     partida.pontos = std::max(0, calcularPontuacao());
     partida.tempo = time(nullptr); // Salva o tempo atual
 
@@ -401,44 +488,35 @@ void Jogo::criarFantasmas(const std::vector<Posicao>& casa) {
     }
 
     // Criar fantasmas com tempos de saída diferentes
-    fantasmas.push_back(std::make_unique<Blinky>(texturaBlinky, casa[0], Posicao{ 9, 11 }));
+    fantasmas.push_back(std::make_unique<Blinky>(texturasBlinky, texturasEspeciais, casa[0], Posicao{ 9, 11 }));
     fantasmas.back()->tempoAteSaida = 2.0f; // Sai após 2 segundos
 
-    fantasmas.push_back(std::make_unique<Pinky>(texturaPinky, casa[1], Posicao{ 10, 12 }));
+    fantasmas.push_back(std::make_unique<Pinky>(texturasPinky, texturasEspeciais, casa[1], Posicao{ 10, 12 }));
     fantasmas.back()->tempoAteSaida = 4.0f; // Sai após 4 segundos
 
-    fantasmas.push_back(std::make_unique<Inky>(texturaInky, casa[2], Posicao{ 8, 12 }));
+    fantasmas.push_back(std::make_unique<Inky>(texturasInky, texturasEspeciais, casa[2], Posicao{ 8, 12 }));
     fantasmas.back()->tempoAteSaida = 6.0f; // Sai após 6 segundos
 
-    fantasmas.push_back(std::make_unique<Clyde>(texturaClyde, casa[3], Posicao{ 9, 12 }));
+    fantasmas.push_back(std::make_unique<Clyde>(texturasClyde, texturasEspeciais, casa[3], Posicao{ 9, 12 }));
     fantasmas.back()->tempoAteSaida = 8.0f; // Sai após 8 segundos
 }
 
 void Jogo::executar() {
     sf::Clock relogio;
+    sons.tocar(Som::Inicio);
 
-    while (janela.isOpen() && estadoJogo == Jogando) {
-        // Limita o passo de tempo: depois de uma pausa (ex.: tela de transição de fase)
-        // o dt seria de segundos, e os personagens dariam um salto atravessando paredes
+    while (janela.isOpen() && !nomeConfirmado && !sairSemSalvar) {
+        // Limita o passo de tempo: depois de uma pausa (ex.: janela arrastada) o dt seria de
+        // segundos, e os personagens dariam um salto atravessando paredes
         float dt = std::min(relogio.restart().asSeconds(), dtMaximo);
         processarEventos();
         atualizar(dt);
         desenhar(relogioJogo);
-        if (estadoJogo != Jogando) break;
     }
 
-    // Quando o jogo termina, salva o ranking
-    if (estadoJogo == Vitoria || estadoJogo == GameOver) {
-        // Toda partida entra no ranking, mesmo de um jogador que já jogou antes
-        finalizarJogo(lerNomeJogador());
-
-        // Exibir mensagem de vitória ou derrota
-        if (estadoJogo == Vitoria) {
-            exibirMensagem("Parabéns! Você venceu!");
-        }
-        else {
-            exibirMensagem("Game Over! Tente novamente.");
-        }
+    // Toda partida terminada entra no ranking, a não ser que o jogador saia com Esc
+    if (nomeConfirmado) {
+        finalizarJogo(nomeDigitado);
     }
 }
 
@@ -459,59 +537,21 @@ bool Jogo::verificarColisaoParede(const sf::FloatRect& objeto) {
     return false;
 }
 
-void Jogo::exibirMensagemTransicao(const std::string& mensagem) {
-    sf::RenderWindow janelaTransicao(sf::VideoMode(600, 300), "Transição");
-    janelaTransicao.setFramerateLimit(60);
-    sf::Text textoMensagem(mensagem, fonte, 30);
-    textoMensagem.setFillColor(sf::Color::White);
-    textoMensagem.setPosition(50, 100);
-
-    sf::Clock relogio;
-    while (janelaTransicao.isOpen() && relogio.getElapsedTime().asSeconds() < 3.0f) {
-        // Processa os eventos para o Windows não marcar a janela como "Não respondendo"
-        sf::Event evento;
-        while (janelaTransicao.pollEvent(evento)) {
-            if (evento.type == sf::Event::Closed) janelaTransicao.close();
-        }
-
-        janelaTransicao.clear();
-        janelaTransicao.draw(textoMensagem);
-        janelaTransicao.display();
-    }
-    janelaTransicao.close();
-}
-
-void Jogo::exibirMensagem(const std::string& mensagem) {
-    sf::RenderWindow janelaMensagem(sf::VideoMode(600, 300), "Mensagem");
-    janelaMensagem.setFramerateLimit(60);
-    sf::Text textoMensagem(mensagem, fonte, 24);
-    textoMensagem.setFillColor(sf::Color::White);
-    textoMensagem.setPosition(50, 80);
-
-    while (janelaMensagem.isOpen()) {
-        sf::Event evento;
-        while (janelaMensagem.pollEvent(evento)) {
-            if (evento.type == sf::Event::Closed || evento.type == sf::Event::KeyPressed) {
-                janelaMensagem.close();
-            }
-        }
-
-        janelaMensagem.clear();
-        janelaMensagem.draw(textoMensagem);
-        janelaMensagem.display();
-    }
-}
-
 void Jogo::desenhar(sf::Clock& relogioJogo) {
     janela.clear();
+    float segundos = relogioJogo.getElapsedTime().asSeconds();
 
-    // Elementos do jogo
-    for (const auto& parede : paredes)
-        janela.draw(parede);
+    // Labirinto: azul; ao concluir a fase, pisca em branco
+    bool piscarLabirinto = etapa == Etapa::FaseConcluida && static_cast<int>(tempoEtapa * 4) % 2 == 0;
+    labirinto.desenhar(janela, piscarLabirinto ? sf::Color::White : corParede);
+
+    // Elementos do jogo (as pílulas fortalecedoras piscam)
     for (const auto& pilula : pilulas)
         janela.draw(pilula);
-    for (const auto& pilulaFortalecedora : pilulasFortalecedoras)
-        janela.draw(pilulaFortalecedora);
+    if (static_cast<int>(segundos * 4) % 2 == 0 || etapa != Etapa::Jogando) {
+        for (const auto& pilulaFortalecedora : pilulasFortalecedoras)
+            janela.draw(pilulaFortalecedora);
+    }
     for (const auto& itemSprite : item)
         janela.draw(itemSprite);
     for (const auto& appleSprite : apple)
@@ -521,9 +561,17 @@ void Jogo::desenhar(sf::Clock& relogioJogo) {
     for (const auto& beerSprite : beer)
         janela.draw(beerSprite);
 
-    pacman.desenhar(janela);
-    for (const auto& fantasma : fantasmas)
-        fantasma->desenhar(janela);
+    // Pac-Man e fantasmas (os fantasmas somem durante a morte e a troca de fase)
+    if (etapa == Etapa::Morrendo) {
+        pacman.desenharMorte(janela, 1.0f - tempoEtapa / duracaoMorte);
+    }
+    else {
+        pacman.desenhar(janela);
+    }
+    if (etapa != Etapa::Morrendo && etapa != Etapa::FaseConcluida) {
+        for (const auto& fantasma : fantasmas)
+            fantasma->desenhar(janela, pacman.fortalecido, pacman.temporizadorFortalecimento);
+    }
 
     // Modo Desafio: escurece tudo, menos um círculo de luz ao redor do Pac-Man
     if (dificuldadeAtual == Desafio) {
@@ -546,25 +594,102 @@ void Jogo::desenhar(sf::Clock& relogioJogo) {
         janela.draw(sf::Sprite(texturaEscura.getTexture()));
     }
 
-    // Desenha a pontuação, vidas e tempo de jogo
-    sf::Text textoPontuacao("Pontos: " + std::to_string(calcularPontuacao()), fonte, 20);
-    textoPontuacao.setPosition(8, alturaMapa + 4 + 0);
-    janela.draw(textoPontuacao);
-
-    sf::Text textoVidas("Vidas: " + std::to_string(pacman.vidas), fonte, 20);
-    textoVidas.setPosition(8, alturaMapa + 4 + 20);
-    janela.draw(textoVidas);
-
-    float tempoDecorrido = relogioJogo.getElapsedTime().asSeconds();
-    sf::Text textoTempo("Tempo: " + std::to_string(static_cast<int>(tempoDecorrido)) + "s", fonte, 20);
-    textoTempo.setPosition(8, alturaMapa + 4 + 40);
-    janela.draw(textoTempo);
-
-    sf::Text textoMovimentos("Movimentos: " + std::to_string(movimentos), fonte, 20);
-    textoMovimentos.setPosition(8, alturaMapa + 4 + 60);
-    janela.draw(textoMovimentos);
-
+    desenharMensagens();
+    desenharHud();
     janela.display();
+}
+
+void Jogo::textoCentralizado(const std::string& texto, unsigned tamanho, float y, sf::Color cor) {
+    sf::Text t(texto, fonte, tamanho);
+    t.setFillColor(cor);
+    t.setOutlineColor(sf::Color::Black);
+    t.setOutlineThickness(2.0f);
+    t.setPosition(std::round((larguraJanela - t.getLocalBounds().width) / 2.0f), y);
+    janela.draw(t);
+}
+
+void Jogo::desenharMensagens() {
+    // A linha 15 do mapa é um corredor em todas as fases: os avisos ficam ali, como no arcade
+    const float linhaAviso = 15 * tamanhoBloco - 1.0f;
+
+    if (etapa == Etapa::Pronto) {
+        if (faseAtual > 0) textoCentralizado("FASE " + std::to_string(faseAtual + 1), 16, 9 * tamanhoBloco, sf::Color::Cyan);
+        textoCentralizado("PRONTO!", 18, linhaAviso, corDestaque);
+    }
+    else if (etapa == Etapa::FaseConcluida) {
+        textoCentralizado("FASE CONCLUIDA!", 18, linhaAviso, corDestaque);
+    }
+    else if (etapa == Etapa::FimDeJogo) {
+        // Painel no centro do labirinto
+        sf::RectangleShape painel({ 300.0f, 200.0f });
+        painel.setPosition((larguraJanela - 300.0f) / 2.0f, 90.0f);
+        painel.setFillColor(sf::Color(0, 0, 0, 230));
+        painel.setOutlineColor(corParede);
+        painel.setOutlineThickness(3.0f);
+        janela.draw(painel);
+
+        bool venceu = estadoJogo == Vitoria;
+        textoCentralizado(venceu ? "VITORIA!" : "GAME OVER", 26, 105.0f, venceu ? corDestaque : sf::Color::Red);
+        textoCentralizado("PONTOS: " + std::to_string(std::max(0, calcularPontuacao())), 16, 145.0f, sf::Color::White);
+        textoCentralizado("DIGITE SEU NOME", 14, 180.0f, sf::Color(170, 170, 170));
+
+        // Caixa de texto com cursor piscando
+        sf::RectangleShape caixa({ 220.0f, 30.0f });
+        caixa.setPosition((larguraJanela - 220.0f) / 2.0f, 202.0f);
+        caixa.setFillColor(sf::Color::Black);
+        caixa.setOutlineColor(sf::Color::White);
+        caixa.setOutlineThickness(2.0f);
+        janela.draw(caixa);
+
+        bool cursor = static_cast<int>(relogioJogo.getElapsedTime().asSeconds() * 2) % 2 == 0;
+        sf::Text nome(nomeDigitado + (cursor ? "_" : ""), fonte, 16);
+        nome.setFillColor(corDestaque);
+        nome.setPosition(caixa.getPosition().x + 8.0f, 207.0f);
+        janela.draw(nome);
+
+        textoCentralizado("ENTER salva   ESC sai", 12, 252.0f, sf::Color(170, 170, 170));
+    }
+}
+
+void Jogo::desenharHud() {
+    const float topo = static_cast<float>(alturaMapa);
+    const sf::Color cinza(170, 170, 170);
+
+    auto escrever = [&](const std::string& texto, unsigned tamanho, float x, float y, sf::Color cor, bool alinharDireita = false) {
+        sf::Text t(texto, fonte, tamanho);
+        t.setFillColor(cor);
+        float px = alinharDireita ? x - t.getLocalBounds().width : x;
+        t.setPosition(std::round(px), std::round(y));
+        janela.draw(t);
+    };
+
+    const float esquerda = 10.0f, direita = larguraJanela - 10.0f;
+
+    // Linha 1: rótulos; linha 2: valores
+    escrever("PONTOS", 14, esquerda, topo + 6, cinza);
+    escrever(std::to_string(calcularPontuacao()), 22, esquerda, topo + 22, sf::Color::White);
+    escrever("FASE", 14, direita, topo + 6, cinza, true);
+    escrever(std::to_string(faseAtual + 1) + "/" + std::to_string(mapas.size()), 22, direita, topo + 22, sf::Color::White, true);
+
+    // Vidas como ícones do Pac-Man
+    sf::Sprite icone(pacman.texturas[1]);
+    for (int i = 0; i < pacman.vidas; ++i) {
+        icone.setPosition(esquerda + i * 20.0f, topo + 60);
+        janela.draw(icone);
+    }
+
+    // Efeitos ativos
+    if (pacman.tempoTurbo > 0.0f) {
+        escrever("TURBO " + std::to_string(static_cast<int>(std::ceil(pacman.tempoTurbo))) + "s", 14, direita, topo + 60, sf::Color::Cyan, true);
+    }
+    else if (pacman.fortalecido) {
+        escrever("PODER " + std::to_string(static_cast<int>(std::ceil(pacman.temporizadorFortalecimento))) + "s", 14, direita, topo + 60, sf::Color(80, 120, 255), true);
+    }
+
+    // Linha de baixo: tempo, movimentos e som
+    std::string tempo = "TEMPO " + std::to_string(static_cast<int>(relogioJogo.getElapsedTime().asSeconds())) + "s";
+    escrever(tempo + "   MOV " + std::to_string(movimentos), 12, esquerda, topo + 94, cinza);
+    escrever(Sons::mudo() ? "M: SOM OFF" : "M: SOM ON", 12, direita, topo + 94, cinza, true);
 }
 
 // O Pac-Man anda sempre na mesma velocidade; o que muda é a velocidade dos fantasmas e as vidas.

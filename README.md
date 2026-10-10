@@ -2,7 +2,7 @@
 
 Recriação do clássico Pac-Man em **C++17** com **SFML 2.6.2**, desenvolvida na disciplina de Algoritmos II para praticar Programação Orientada a Objetos.
 
-<img width="342" height="500" alt="Captura de tela do jogo" src="docs/screenshot.png" />
+<img width="342" height="500" alt="Captura de tela do jogo" src="docs/screenshot.png" /> <img width="425" height="300" alt="Menu do jogo" src="docs/menu.png" />
 
 ## Funcionalidades
 
@@ -15,8 +15,8 @@ Recriação do clássico Pac-Man em **C++17** com **SFML 2.6.2**, desenvolvida n
   | Inky | Usa a posição do Blinky para cercar o Pac-Man |
   | Clyde | Persegue de longe, mas recua quando chega perto |
 
-  Os fantasmas alternam entre andar sem rumo (7 s) e perseguir (20 s), seguindo o menor caminho pelo labirinto.
-- **Pílulas fortalecedoras:** por 5 s o Pac-Man pode comer os fantasmas, que voltam para a casa e esperam 5 s para sair
+  Os fantasmas alternam entre andar sem rumo (7 s) e perseguir (20 s), seguindo o menor caminho pelo labirinto, e são animados conforme a direção em que andam.
+- **Pílulas fortalecedoras** (piscando no labirinto): por 5 s os fantasmas ficam azuis e podem ser comidos, piscando em branco quando o efeito está acabando. Um fantasma comido vira um par de olhos que volta para a casa e espera 5 s para sair
 - **Itens especiais:**
   | Item | Efeito |
   |---|---|
@@ -34,7 +34,8 @@ Recriação do clássico Pac-Man em **C++17** com **SFML 2.6.2**, desenvolvida n
 
   O Pac-Man anda sempre a cerca de 3,3 blocos/s.
 - **Modo IA:** o Pac-Man joga sozinho, buscando a pílula mais próxima e desviando dos fantasmas
-- **Ranking** salvo em arquivo, com nome, pontuação e data de cada partida
+- **Ranking** salvo em arquivo, com nome, pontuação e data de cada partida; o nome é digitado na própria janela ao fim da partida
+- **Visual e som no estilo arcade:** labirinto com contorno azul, Pac-Man virando para a direção do movimento, animação de morte, avisos de "PRONTO!" e fase concluída, vidas em ícones e efeitos sonoros (tecla **M** liga e desliga o som)
 
 ### Pontuação
 
@@ -53,11 +54,11 @@ Médio, Difícil e Desafio começam com um bônus de 15, 30 e 50 pontos.
 | Tecla | Ação |
 |---|---|
 | ← ↑ → ↓ | Mover o Pac-Man |
-| Mouse | Escolher as opções dos menus |
+| M | Ligar e desligar o som |
+| Mouse ou ↑ ↓ + Enter | Escolher as opções dos menus |
 | Esc | Voltar ao menu (telas de dificuldade e ranking) |
-| ↑ ↓ (no ranking) | Rolar a lista |
-
-No fim da partida, o nome do jogador é digitado no **console**.
+| ↑ ↓ ou roda do mouse (no ranking) | Rolar a lista |
+| Enter / Esc (fim de partida) | Salvar o nome no ranking / sair sem salvar |
 
 ## Requisitos
 
@@ -96,42 +97,37 @@ cmake -B build
 cmake --build build
 ```
 
-O executável é gerado em `build/bin/`, junto com uma cópia da pasta `assets/`. Execute de dentro dessa pasta, para o jogo encontrar os assets:
+O executável é gerado em `build/bin/`, junto com uma cópia da pasta `assets/` e, no Windows, o `openal32.dll` (usado pelo áudio do SFML; ele precisa ficar ao lado do `.exe`). O jogo procura os assets na pasta do próprio executável, então pode ser aberto de qualquer lugar:
 
 ```bash
-cd build/bin
+./build/bin/pacman
 ```
-```bash
-./pacman
-```
+
+No Windows, também dá para abrir com dois cliques em `build\bin\pacman.exe`.
 
 O ranking é salvo em `build/bin/ranking.txt`.
 
 ## Estrutura do projeto
 
 ```
-assets/           Imagens, fontes e sons
+assets/             Imagens, fontes e sons
 src/
-  main.cpp        Loop do menu: Jogar, IA, Ranking e Sair
-  Config.h        Constantes (tamanhos, velocidades, caminhos)
-  Tipos.h/.cpp    Enums (Direcao, Celula...), Mapa e Posicao
-  Mapas.h/.cpp    Os mapas das 3 fases
-  Jogo.h/.cpp     Uma partida: atualização, colisões, itens e desenho
-  Pacman.h/.cpp   Pac-Man: animação, efeitos e modo IA
-  Fantasma.h/.cpp Classe base Fantasma + Blinky, Pinky, Inky e Clyde
-  Ranking.h/.cpp  Salvar, carregar e exibir o ranking
-  Telas.h/.cpp    Menu e escolha de dificuldade
-  Recursos.h/.cpp Carregamento de texturas
-CMakeLists.txt    Build (baixa o SFML 2.6.2 automaticamente)
+  main.cpp          Loop do menu: Jogar, IA, Ranking e Sair
+  Config.h          Constantes (tamanhos, velocidades, caminhos)
+  Tipos.h/.cpp      Enums (Direcao, Celula...), Mapa e Posicao
+  Mapas.h/.cpp      Os mapas das 3 fases
+  Jogo.h/.cpp       Uma partida: etapas, colisões, itens, HUD e mensagens
+  Labirinto.h/.cpp  Desenho das paredes no estilo arcade
+  Pacman.h/.cpp     Pac-Man: animação, efeitos e modo IA
+  Fantasma.h/.cpp   Classe base Fantasma + Blinky, Pinky, Inky e Clyde (com animações)
+  Ranking.h/.cpp    Salvar, carregar e exibir o ranking
+  Telas.h/.cpp      Menu e escolha de dificuldade
+  Recursos.h/.cpp   Carregamento de texturas
+  Sons.h/.cpp       Efeitos sonoros e mudo
+CMakeLists.txt      Build (baixa o SFML 2.6.2 automaticamente)
 ```
 
 Os mapas são grades de números em `src/Mapas.cpp`. O significado de cada número está no `enum Celula`, em `src/Tipos.h`.
-
-## Limitações conhecidas
-
-- As imagens da **maçã**, do **energético** e da **cerveja** não estão no projeto e aparecem como quadrados coloridos. Para trocar, basta adicionar `apple.png`, `redbull.png` e `beer.png` em `assets/img/item/`.
-- Os sons em `assets/audio/` ainda não são tocados.
-- O nome do jogador é digitado no console, e não na janela do jogo.
 
 ## Autor
 
