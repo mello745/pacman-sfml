@@ -19,7 +19,12 @@ FetchContent_Declare(SFML
     GIT_TAG 2.6.2
     GIT_SHALLOW ON
 )
+# O CMakeLists do SFML 2.6.2 declara compatibilidade com o CMake 3.7, o que gera o aviso
+# "Compatibility with CMake < 3.10" nas versões novas do CMake. Só para o SFML, ele passa
+# a ser tratado como compatível com o 3.10, e o aviso some.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 FetchContent_MakeAvailable(SFML)
+unset(CMAKE_POLICY_VERSION_MINIMUM)
 
 add_executable(pacman
     src/main.cpp

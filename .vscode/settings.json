@@ -1,6 +1,8 @@
 {
   "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.generator": "Ninja",
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "C_Cpp.debugShortcut": false,
+  "code-runner.showRunIconInEditorTitleMenu": false,
   "cmake.options.statusBarVisibility": "visible"
 }
