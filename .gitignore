@@ -24,7 +24,6 @@ Release/
 !.vscode/extensions.json
 !.vscode/settings.json
 !.vscode/launch.json
-!.vscode/tasks.json
 
 # Dados gerados em runtime
 ranking.txt

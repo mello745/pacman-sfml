@@ -1,80 +1,147 @@
-🟡 Pac-Man — Projeto em C++ com SFML e Qt
+# 🟡 Pac-Man em C++ com SFML
 
-Trabalho desenvolvido durante a disciplina de Algoritmos II, com o objetivo de aplicar Programação Orientada a Objetos (POO) e explorar o uso das bibliotecas SFML (Simple and Fast Multimedia Library) e Qt Framework para criação de interfaces e jogos 2D.
+Recriação do clássico Pac-Man em **C++17** com **SFML 2.6.2**, desenvolvida na disciplina de Algoritmos II para praticar Programação Orientada a Objetos.
 
-Sobre o Projeto
+<img width="342" height="500" alt="Captura de tela do jogo" src="docs/screenshot.png" />
 
-Este projeto é uma recriação do clássico Pac-Man, desenvolvida em C++, combinando duas tecnologias poderosas:
+## Funcionalidades
 
-SFML, para renderização, movimentação e lógica de jogo;
+- **3 fases** com mapas diferentes
+- **4 fantasmas**, cada um com o seu jeito de perseguir:
+  | Fantasma | Alvo |
+  |---|---|
+  | Blinky | Vai direto no Pac-Man |
+  | Pinky | Mira 4 blocos à frente do Pac-Man |
+  | Inky | Usa a posição do Blinky para cercar o Pac-Man |
+  | Clyde | Persegue de longe, mas recua quando chega perto |
 
-Qt, para as telas de menu, vitória e game over.
+  Os fantasmas alternam entre andar sem rumo (7 s) e perseguir (20 s), seguindo o menor caminho pelo labirinto.
+- **Pílulas fortalecedoras:** por 5 s o Pac-Man pode comer os fantasmas, que voltam para a casa e esperam 5 s para sair
+- **Itens especiais:**
+  | Item | Efeito |
+  |---|---|
+  | Cereja | +100 pontos |
+  | Maçã | +1 vida (até o número inicial de vidas) |
+  | Energético | Velocidade ×2,5 por 5 s |
+  | Cerveja | Perde metade dos pontos, mas fica 2× mais rápido por 5 s |
+- **4 dificuldades:**
+  | Dificuldade | Velocidade dos fantasmas | Vidas |
+  |---|---|---|
+  | Fácil | 2,0 blocos/s | 5 |
+  | Médio | 2,4 blocos/s | 3 |
+  | Difícil | 2,8 blocos/s | 2 |
+  | Desafio | 2,8 blocos/s, com a tela escura e só um círculo de luz ao redor do Pac-Man | 1 |
 
-O jogo implementa movimentação do Pac-Man, coleta de pellets, comportamento dos fantasmas, sistema de pontuação e telas interativas de fim de jogo.
+  O Pac-Man anda sempre a cerca de 3,3 blocos/s.
+- **Modo IA:** o Pac-Man joga sozinho, buscando a pílula mais próxima e desviando dos fantasmas
+- **Ranking** salvo em arquivo, com nome, pontuação e data de cada partida
 
-Tecnologias Utilizadas
-Tecnologia	Função
-C++	Linguagem principal de desenvolvimento
-SFML 2.5+	Biblioteca para gráficos, áudio e controle de eventos
-Qt Framework (5 ou 6)	Interface gráfica, menus e diálogos
-Programação Orientada a Objetos	Estruturação modular e reutilizável do código
-Conceitos Aplicados
+### Pontuação
 
-Durante o desenvolvimento foram aplicados os seguintes conceitos de POO:
+| Ação | Pontos |
+|---|---|
+| Pílula | +10 |
+| Pílula fortalecedora | +50 |
+| Comer um fantasma | +200 |
+| Cereja | +100 |
+| Cada tecla de movimento | −2 |
 
-Criação e relacionamento entre classes (Pacman, Ghost, Pinky, Pellet, Game, MainWindow, etc.);
+Médio, Difícil e Desafio começam com um bônus de 15, 30 e 50 pontos.
 
-Encapsulamento e abstração de comportamentos;
+## Controles
 
-Herança e polimorfismo (ex: Pinky herdando de Ghost);
+| Tecla | Ação |
+|---|---|
+| ← ↑ → ↓ | Mover o Pac-Man |
+| Mouse | Escolher as opções dos menus |
+| Esc | Voltar ao menu (telas de dificuldade e ranking) |
+| ↑ ↓ (no ranking) | Rolar a lista |
 
+No fim da partida, o nome do jogador é digitado no **console**.
 
+## Requisitos
 
-Funcionalidades Principais:
+- Compilador com suporte a **C++17**. Testado com o GCC do [MSYS2](https://www.msys2.org/) (UCRT64) no Windows.
+- **CMake 3.16+**
+- **VS Code** com as extensões [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) e [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools)
 
-✅ Movimento suave do Pac-Man com animação 
+O SFML **não precisa ser instalado**: o CMake baixa e compila a versão 2.6.2 automaticamente.
 
-✅ Fantasmas com IA básica (seguem e reagem ao Pac-Man)
+No Windows, com o MSYS2 instalado, o compilador, o CMake e o Ninja são instalados pelo terminal **MSYS2 UCRT64** (o gerenciador de pacotes do MSYS2 também se chama `pacman`):
 
-✅ Sistema de pontuação e pellets colecionáveis
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-gdb
+```
 
-✅ Modos de jogo: normal, vitória e game over
+No Linux, instale antes as dependências de sistema do SFML:
 
-✅ Interface visual com Qt (menus, tela de vitória e derrota)
+```bash
+sudo apt install libx11-dev libxrandr-dev libxcursor-dev libxi-dev libudev-dev libgl1-mesa-dev libfreetype-dev libopenal-dev libflac-dev libvorbis-dev
+```
 
-✅ Sons e sprites animados
+## Como compilar e executar
 
-✅ Sistema de ranking e pontuação persistente (arquivo .txt)⚙️ Como Compilar e Executar
+### Pelo VS Code
+1. Abra a pasta do projeto no VS Code.
+2. Quando o CMake Tools pedir, escolha um kit (compilador). No MSYS2, é o **GCC … ucrt64**.
+3. Use **Build** e **▶ Run** na barra de status do CMake Tools, ou **F5** para depurar.
 
-Requisitos
+A primeira compilação demora cerca de 1 minuto, porque compila o SFML junto.
 
-Compilador C++17+
+### Pelo terminal
+```bash
+cmake -B build
+```
+```bash
+cmake --build build
+```
 
-Qt 5/6 instalado
+O executável é gerado em `build/bin/`, junto com uma cópia da pasta `assets/`. Execute de dentro dessa pasta, para o jogo encontrar os assets:
 
-SFML 2.5+ instalada
+```bash
+cd build/bin
+```
+```bash
+./pacman
+```
 
-CMake (opcional)
+O ranking é salvo em `build/bin/ranking.txt`.
 
-Compilação (exemplo com g++ e SFML)
-g++ src/*.cpp -o Pacman -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio `pkg-config --cflags --libs Qt5Widgets`
+## Estrutura do projeto
 
+```
+assets/           Imagens, fontes e sons
+src/
+  main.cpp        Loop do menu: Jogar, IA, Ranking e Sair
+  Config.h        Constantes (tamanhos, velocidades, caminhos)
+  Tipos.h/.cpp    Enums (Direcao, Celula...), Mapa e Posicao
+  Mapas.h/.cpp    Os mapas das 3 fases
+  Jogo.h/.cpp     Uma partida: atualização, colisões, itens e desenho
+  Pacman.h/.cpp   Pac-Man: animação, efeitos e modo IA
+  Fantasma.h/.cpp Classe base Fantasma + Blinky, Pinky, Inky e Clyde
+  Ranking.h/.cpp  Salvar, carregar e exibir o ranking
+  Telas.h/.cpp    Menu e escolha de dificuldade
+  Recursos.h/.cpp Carregamento de texturas
+CMakeLists.txt    Build (baixa o SFML 2.6.2 automaticamente)
+```
 
+Os mapas são grades de números em `src/Mapas.cpp`. O significado de cada número está no `enum Celula`, em `src/Tipos.h`.
 
-Autor
+## Limitações conhecidas
 
-Gustavo Corrêa de Mello
-Itajaí — SC
-gustavocmello27@gmail.com
+- As imagens da **maçã**, do **energético** e da **cerveja** não estão no projeto e aparecem como quadrados coloridos. Para trocar, basta adicionar `apple.png`, `redbull.png` e `beer.png` em `assets/img/item/`.
+- Os sons em `assets/audio/` ainda não são tocados.
+- O nome do jogador é digitado no console, e não na janela do jogo.
 
-LinkedIn = www.linkedin.com/in/gustavo-correa-de-mello-772a8834a
+## Autor
 
-GitHub = www.github.com/mello745
+**Gustavo Corrêa de Mello**, Itajaí, SC
+- 📧 gustavocmello27@gmail.com
+- 💼 [LinkedIn](https://www.linkedin.com/in/gustavo-correa-de-mello-772a8834a)
+- 🐙 [GitHub](https://github.com/mello745)
 
-Licença
+## Licença
 
-Este projeto foi desenvolvido para fins educacionais, como parte da disciplina Algoritmos II.
-Você é livre para estudar, modificar e aprimorar o código com os devidos créditos.
+Projeto desenvolvido para fins educacionais, como parte da disciplina Algoritmos II. Você pode estudar, modificar e aprimorar o código, desde que mantenha os créditos.
 
-<img width="340" height="461" alt="image" src="https://github.com/user-attachments/assets/2e6edb0a-7d03-4480-ada2-9b1bf7b19eb8" />
-
+*Pac-Man é uma marca registrada da Bandai Namco Entertainment. Este é um projeto acadêmico, sem fins comerciais.*
