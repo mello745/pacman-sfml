@@ -29,6 +29,7 @@ unset(CMAKE_POLICY_VERSION_MINIMUM)
 add_executable(pacman
     src/main.cpp
     src/Fantasma.cpp
+    src/Janela.cpp
     src/Jogo.cpp
     src/Labirinto.cpp
     src/Mapas.cpp

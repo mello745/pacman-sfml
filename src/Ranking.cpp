@@ -1,6 +1,7 @@
 #include "Ranking.h"
 
 #include "Config.h"
+#include "Janela.h"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>
@@ -49,8 +50,8 @@ void exibirRanking() {
         });
 
     const unsigned largura = 850, altura = 600;
-    sf::RenderWindow window(sf::VideoMode(largura, altura), "Ranking");
-    window.setFramerateLimit(60);
+    sf::RenderWindow window;
+    abrirJanela(window, { largura, altura }, "Ranking");
     sf::Font font;
     if (!font.loadFromFile(caminhoFonte)) {
         std::cerr << "Erro ao carregar a fonte!" << std::endl;
@@ -78,6 +79,7 @@ void exibirRanking() {
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
+            if (tratarEventoDeJanela(window, event, { largura, altura }, "Ranking")) continue;
             if (event.type == sf::Event::Closed ||
                 (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)) {
                 window.close(); // Volta ao menu
@@ -142,8 +144,8 @@ void exibirRanking() {
             escrever(std::to_string(primeiraLinhaVisivel + 1) + "-" + std::to_string(ultima) + " de " + std::to_string(ranking.size()),
                 12, largura - 50.0f, 545, cinza, true);
         }
-        float l = sf::Text("SETAS ou RODA DO MOUSE rolam   ESC volta", font, 12).getLocalBounds().width;
-        escrever("SETAS ou RODA DO MOUSE rolam   ESC volta", 12, (largura - l) / 2.0f, 568, sf::Color(110, 110, 110));
+        float l = sf::Text("SETAS ou RODA DO MOUSE rolam   ESC volta   F11 tela cheia", font, 12).getLocalBounds().width;
+        escrever("SETAS ou RODA DO MOUSE rolam   ESC volta   F11 tela cheia", 12, (largura - l) / 2.0f, 568, sf::Color(110, 110, 110));
 
         window.display();
     }

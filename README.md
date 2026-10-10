@@ -35,6 +35,7 @@ Recriação do clássico Pac-Man em **C++17** com **SFML 2.6.2**, desenvolvida n
   O Pac-Man anda sempre a cerca de 3,3 blocos/s.
 - **Modo IA:** o Pac-Man joga sozinho, buscando a pílula mais próxima e desviando dos fantasmas
 - **Ranking** salvo em arquivo, com nome, pontuação e data de cada partida; o nome é digitado na própria janela ao fim da partida
+- **Ajuste à tela:** as janelas se ampliam sozinhas para caber no monitor (em 1920×1080 o jogo fica 2× maior, com a pixel art nítida), podem ser redimensionadas mantendo a proporção e têm tela cheia no **F11**
 - **Visual e som no estilo arcade:** labirinto com contorno azul, Pac-Man virando para a direção do movimento, animação de morte, avisos de "PRONTO!" e fase concluída, vidas em ícones e efeitos sonoros (tecla **M** liga e desliga o som)
 
 ### Pontuação
@@ -55,6 +56,7 @@ Médio, Difícil e Desafio começam com um bônus de 15, 30 e 50 pontos.
 |---|---|
 | ← ↑ → ↓ | Mover o Pac-Man |
 | M | Ligar e desligar o som |
+| F11 | Alternar entre janela e tela cheia |
 | Mouse ou ↑ ↓ + Enter | Escolher as opções dos menus |
 | Esc | Voltar ao menu (telas de dificuldade e ranking) |
 | ↑ ↓ ou roda do mouse (no ranking) | Rolar a lista |
@@ -116,6 +118,7 @@ src/
   Config.h          Constantes (tamanhos, velocidades, caminhos)
   Tipos.h/.cpp      Enums (Direcao, Celula...), Mapa e Posicao
   Mapas.h/.cpp      Os mapas das 3 fases
+  Janela.h/.cpp     Ampliação para a tela, redimensionamento e tela cheia (F11)
   Jogo.h/.cpp       Uma partida: etapas, colisões, itens, HUD e mensagens
   Labirinto.h/.cpp  Desenho das paredes no estilo arcade
   Pacman.h/.cpp     Pac-Man: animação, efeitos e modo IA

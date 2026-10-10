@@ -1,6 +1,7 @@
 #include "Jogo.h"
 
 #include "Config.h"
+#include "Janela.h"
 #include "Ranking.h"
 #include "Recursos.h"
 
@@ -8,8 +9,9 @@
 #include <cctype>
 #include <iostream>
 
-Jogo::Jogo() : janela(sf::VideoMode(larguraJanela, alturaJanela), "Pac-Man"), pacman(0, 0), estadoJogo(Jogando) {
-    janela.setFramerateLimit(60);
+Jogo::Jogo() : pacman(0, 0), estadoJogo(Jogando) {
+    // Desenha sempre em 342x500 "virtuais"; a janela amplia para a tela do jogador
+    abrirJanela(janela, { larguraJanela, alturaJanela }, "Pac-Man");
 
     if (!fonte.loadFromFile(caminhoFonte)) {
         std::cerr << "Erro ao carregar a fonte." << std::endl;
@@ -417,6 +419,9 @@ void Jogo::processarEventos() {
     while (janela.pollEvent(evento)) {
         if (evento.type == sf::Event::Closed)
             janela.close();
+
+        // Redimensionar e F11 (tela cheia)
+        if (tratarEventoDeJanela(janela, evento, { larguraJanela, alturaJanela }, "Pac-Man")) continue;
 
         // Fim de jogo: o teclado serve para digitar o nome
         if (etapa == Etapa::FimDeJogo) {

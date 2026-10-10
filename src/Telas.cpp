@@ -1,6 +1,7 @@
 #include "Telas.h"
 
 #include "Config.h"
+#include "Janela.h"
 #include "Recursos.h"
 
 #include <SFML/Graphics.hpp>
@@ -67,8 +68,8 @@ void desenharCentralizado(sf::RenderTarget& alvo, const sf::Font& fonte, const s
 // Retorna o índice escolhido, ou -1 se a janela for fechada (ou Esc, fora do menu principal).
 int telaDeOpcoes(const std::string& tituloJanela, const std::string& titulo,
     const std::vector<Opcao>& opcoes, bool menuPrincipal) {
-    sf::RenderWindow janela(sf::VideoMode(larguraTela, alturaTela), tituloJanela);
-    janela.setFramerateLimit(60);
+    sf::RenderWindow janela;
+    abrirJanela(janela, { larguraTela, alturaTela }, tituloJanela);
 
     sf::Font fonte;
     if (!fonte.loadFromFile(caminhoFonte)) {
@@ -90,6 +91,9 @@ int telaDeOpcoes(const std::string& tituloJanela, const std::string& titulo,
     // ganha foco). Só uma posição nova do mouse muda a seleção, para não desfazer a do teclado.
     sf::Vector2i ultimoMouse = sf::Mouse::getPosition(janela);
 
+    // O mouse vem em pixels da janela real; as opções estão em coordenadas virtuais (850x600)
+    auto virtualDe = [&](int x, int y) { return janela.mapPixelToCoords({ x, y }); };
+
     // Área clicável de cada opção: a faixa inteira da linha, não só as letras
     auto opcaoEm = [&](float x, float y) {
         for (int i = 0; i < static_cast<int>(opcoes.size()); ++i) {
@@ -103,6 +107,7 @@ int telaDeOpcoes(const std::string& tituloJanela, const std::string& titulo,
         sf::Event evento;
         while (janela.pollEvent(evento)) {
             if (evento.type == sf::Event::Closed) return -1;
+            if (tratarEventoDeJanela(janela, evento, { larguraTela, alturaTela }, tituloJanela)) continue;
 
             if (evento.type == sf::Event::KeyPressed) {
                 switch (evento.key.code) {
@@ -127,13 +132,15 @@ int telaDeOpcoes(const std::string& tituloJanela, const std::string& titulo,
                 sf::Vector2i agora(evento.mouseMove.x, evento.mouseMove.y);
                 if (agora != ultimoMouse) {
                     ultimoMouse = agora;
-                    int i = opcaoEm(static_cast<float>(agora.x), static_cast<float>(agora.y));
+                    sf::Vector2f p = virtualDe(agora.x, agora.y);
+                    int i = opcaoEm(p.x, p.y);
                     if (i >= 0) selecionada = i;
                 }
             }
 
             if (evento.type == sf::Event::MouseButtonPressed && evento.mouseButton.button == sf::Mouse::Left) {
-                int i = opcaoEm(static_cast<float>(evento.mouseButton.x), static_cast<float>(evento.mouseButton.y));
+                sf::Vector2f p = virtualDe(evento.mouseButton.x, evento.mouseButton.y);
+                int i = opcaoEm(p.x, p.y);
                 if (i >= 0) return i;
             }
         }
@@ -174,7 +181,7 @@ int telaDeOpcoes(const std::string& tituloJanela, const std::string& titulo,
         }
 
         desenharCentralizado(janela, fonte, opcoes[selecionada].descricao, 16, 525.0f, sf::Color(200, 200, 200));
-        desenharCentralizado(janela, fonte, menuPrincipal ? "SETAS + ENTER ou MOUSE" : "SETAS + ENTER ou MOUSE   ESC volta",
+        desenharCentralizado(janela, fonte, menuPrincipal ? "SETAS + ENTER ou MOUSE   F11 tela cheia" : "SETAS + ENTER ou MOUSE   ESC volta   F11 tela cheia",
             12, 568.0f, sf::Color(110, 110, 110));
         janela.display();
     }
